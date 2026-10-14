@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeepLearn Builder - Rancangan Pembelajaran Mendalam</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div><b>DeepLearn Builder</b><small>Rancangan Pembelajaran Mendalam · UbD · DUP · CASEL</small></div>
+  <div class="hr"><em id="saved">Tersimpan otomatis</em><button class="ghost" id="reset">Buat baru</button></div>
+</header>
+<div class="wrap">
+  <aside>
+    <h4>Langkah</h4><ol id="steps"></ol>
+    <h4>Cek keterpaduan</h4><ul id="cek"></ul>
+  </aside>
+  <main>
+    <div id="view"></div>
+    <div class="nav"><button class="ghost" id="prev">← Kembali</button><span id="pos"></span><button id="next">Lanjut →</button></div>
+  </main>
+</div>
+<script src="docx.js"></script>
+<script src="pizzip.min.js"></script>
+<script src="docx-merger.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "modul-ajar-app",
+  "version": "2.0.0",
+  "description": "DeepLearn Builder - Rancangan Pembelajaran Mendalam (UbD, DUP, CASEL)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.aray.modulajar",
+    "win": { "target": ["portable"] },
+    "files": ["main.js", "index.html", "style.css", "app.js", "docx.js", "pizzip.min.js", "docx-merger.min.js"]
+  }
+}
