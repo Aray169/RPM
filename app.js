@@ -118,7 +118,7 @@ const STEPS = [
     <div class="f"><span>Ruang fisik</span>${D.pend.fisik.map((x, i) => `<div class="row"><input data-p="pend.fisik.${i}.nama" value="${esc(x.nama)}" placeholder="Nama ruangan"><input data-p="pend.fisik.${i}.suasana" value="${esc(x.suasana)}" placeholder="Suasana atau kondisi">${DEL('pend.fisik', i)}</div>`).join('')}${ADDB('pend.fisik', '+ Ruang fisik')}</div>
     ${LIST('Budaya belajar', 'pend.budaya', 'Contoh: Budaya saling menghormati')}
     <div class="f"><span>Integrasi TPACK / digital</span>${D.pend.tpack.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.tpack.${i}.alat`, TPK, 1)}${DEL('pend.tpack', i)}</div>${x.alat === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.tpack.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis alat manual...">` : ''}${TA(`pend.tpack.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('pend.tpack', '+ Alat digital')}</div></div>`],
-  ['Pengesahan', () => `<div class="card">${head('Pengesahan', 'Data untuk blok tanda tangan.')}<div class="g2">${F('Kota atau kabupaten', 'ttd.kota', { ph: 'Semarang' })}${F('Tanggal dokumen', 'ttd.tgl', { type: 'date' })}${F('Kepala sekolah', 'ttd.kepsek')}${F('NIP kepala sekolah', 'ttd.nipk', { ph: 'NIP. ...' })}${F('Guru mata pelajaran', 'ttd.guru')}${F('NIP guru', 'ttd.nipg', { ph: 'NIP. ...' })}</div></div>`],
+  ['Pengesahan', () => `<div class="card">${head('Pengesahan', 'Data untuk blok tanda tangan.')}<div class="g2">${F('Kota atau kabupaten', 'ttd.kota', { ph: 'Semarang' })}${F('Tanggal dokumen', 'ttd.tgl', { type: 'date' })}${F('Kepala sekolah', 'ttd.kepsek')}${F('NIP kepala sekolah', 'ttd.nipk', { ph: 'Nomor NIP saja' })}${F('Guru mata pelajaran', 'ttd.guru')}${F('NIP guru', 'ttd.nipg', { ph: 'Nomor NIP saja' })}</div></div>`],
   ['Lampiran', () => `<div class="card">${head('Lampiran (.docx)', 'Berkas yang diunggah di sini digabungkan di akhir dokumen saat diunduh.')}
     ${`<div class="g2"><label class="f"><span>Judul lampiran</span><input id="judulLamp" placeholder="Contoh: LKPD 1"></label><label class="f"><span>Berkas .docx</span><input type="file" id="fileLamp" accept=".docx" multiple></label></div>`}
     <button class="add" data-act="addlamp">+ Tambahkan ke daftar</button><div id="lamp" style="margin-top:14px"></div></div>`],
@@ -169,7 +169,36 @@ async function gabung(blob) {
   const ok = (await lampAll()).filter(x => x.konten && x.konten.byteLength > 0);
   if (!ok.length || typeof DocxMerger === 'undefined') return blob;
   const files = [await blob.arrayBuffer(), ...ok.map(x => x.konten)];
-  return new Promise(res => { try { new DocxMerger({}, files).save('blob', res); } catch (e) { console.error(e); res(blob); } });
+  const merged = await new Promise(res => { try { new DocxMerger({}, files).save('blob', res); } catch (e) { console.error(e); res(blob); } });
+  return bersihkan(merged);
+}
+/* Penggabung bawaan meninggalkan relasi yang menunjuk berkas hilang, relasi ganda, dan gambar JPEG berekstensi .png.
+   Fungsi ini merapikannya agar dokumen terbuka normal di Word maupun LibreOffice. */
+async function bersihkan(blob) {
+  if (typeof PizZip === 'undefined') return blob;
+  try {
+    const z = new PizZip(await blob.arrayBuffer());
+    const rf = z.file('word/_rels/document.xml.rels'), df = z.file('word/document.xml');
+    if (!rf || !df) return blob;
+    const doc = df.asText(); let rels = rf.asText();
+    const attr = (m, k) => (m.match(new RegExp(k + '="([^"]*)"')) || [])[1];
+    const seen = {}, ren = {};
+    Object.keys(z.files).filter(n => /^word\/media\/[^/]+$/.test(n)).forEach(n => {
+      const h = Array.from(new Uint8Array(z.file(n).asArrayBuffer().slice(0, 4))).map(b => b.toString(16).padStart(2, '0')).join('');
+      const ext = h.startsWith('ffd8ff') ? 'jpeg' : h.startsWith('89504e47') ? 'png' : h.startsWith('47494638') ? 'gif' : null;
+      if (ext && !n.toLowerCase().endsWith('.' + ext)) { const nn = n.replace(/\.[^.]+$/, '') + '.' + ext; z.file(nn, z.file(n).asUint8Array()); z.remove(n); ren[n.slice(5)] = nn.slice(5); }
+    });
+    rels = rels.replace(/<Relationship\b[^>]*\/>/g, m => {
+      let t = attr(m, 'Target'), id = attr(m, 'Id'); if (!t || attr(m, 'TargetMode') === 'External') return m;
+      if (ren[t]) { m = m.replace(t, ren[t]); t = ren[t]; }
+      if (!z.file(t.startsWith('/') ? t.slice(1) : 'word/' + t)) return '';
+      const key = attr(m, 'Type') + '|' + t;
+      if (seen[key] && !doc.includes('"' + id + '"')) return '';
+      seen[key] = 1; return m;
+    });
+    z.file('word/_rels/document.xml.rels', rels);
+    return z.generate({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', compression: 'DEFLATE' });
+  } catch (e) { console.error(e); return blob; }
 }
 
 /* ---------- sampul ---------- */
@@ -231,53 +260,112 @@ $('reset').onclick = () => {
   render(true);
 };
 
-/* ---------- ekspor .docx ---------- */
+/* ---------- ekspor .docx (format mengikuti aplikasi asli) ---------- */
 async function unduh(btn) {
   btn.disabled = true; btn.textContent = 'Menyusun dokumen...';
   try {
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, ImageRun, AlignmentType, PageBreak } = docx;
-    const P = (t, b) => new Paragraph({ children: String(t || '-').split('\n').map((l, i) => new TextRun({ text: l, bold: b, break: i ? 1 : 0 })), spacing: { after: 80 } });
-    const C = (t, b) => new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, bold: b, size: b ? 32 : 26 })], spacing: { after: 160 } });
-    const H = t => new Paragraph({ text: t, heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 120 } });
-    const T = (rows, hd) => new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: rows.map((r, i) => new TableRow({ children: r.map(c => new TableCell({ children: [P(c, hd && i === 0)] })) })) });
-    const J = a => a.join(', ') || '-';
-    const N = a => a.filter(x => String(x).trim()).map((x, i) => (i + 1) + '. ' + x).join('\n');
-    const tgl = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-    const jenis = x => x.jenis === 'Lainnya' ? (x.manual || 'Lainnya') : x.jenis;
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, ImageRun, AlignmentType, PageBreak, TableBorders, TableLayoutType } = docx;
+    const FN = 'Times New Roman', SH = 'F2F2F2';
+    const R = (t, o = {}) => new TextRun({ text: t, font: FN, size: o.size || 24, bold: o.bold, underline: o.u ? {} : undefined });
+    const runs = (t, o) => { const ls = String(t == null ? '' : t).split('\n'), out = []; ls.forEach((l, i) => { out.push(R(l, o)); if (i < ls.length - 1) out.push(new TextRun({ text: '', break: 1 })); }); return out; };
+    const std = (t, b) => new Paragraph({ children: [R(t || '-', { bold: b })] });
+    const ctr = (t, o) => new Paragraph({ alignment: AlignmentType.CENTER, children: [R(t, o)] });
+    const IND = { left: 650, hanging: 300 };
+    const bl = (label, val) => new Paragraph({ children: [R('● ' + label + ': ', { bold: true }), ...runs(val)], indent: IND, spacing: { after: 120 } });
+    const b1 = t => new Paragraph({ children: [R('● ' + t)], indent: IND, spacing: { after: 120 } });
+    const num = t => new Paragraph({ children: runs(t), numbering: { reference: 'num', level: 0 }, spacing: { after: 120 } });
+    const W = (n, c) => ({ size: n, type: WidthType.PERCENTAGE });
+    const body = v => Array.isArray(v) ? v : [new Paragraph({ children: runs(v) })];
+    const row2 = (label, v) => new TableRow({ children: [new TableCell({ width: W(35), children: [std(label, true)] }), new TableCell({ width: W(65), children: body(v || '-') })] });
+    const full = (label, v) => { const r = [new TableRow({ children: [new TableCell({ width: W(100), shading: { fill: SH }, children: [std(label, true)] })] })]; if (v) r.push(new TableRow({ children: [new TableCell({ width: W(100), margins: { top: 100, bottom: 100, left: 100, right: 100 }, children: body(v) })] })); return r; };
+    const T = (rows, cw) => new Table({ width: W(100), columnWidths: cw || [9026], layout: TableLayoutType.FIXED, rows });
+    const H = (t, before) => new Paragraph({ children: [R(t, { bold: true, size: 28 })], spacing: { before: before || 400, after: 200 } });
+    const ls = a => a.length ? a : '● -';
+    const ne = a => a.filter(x => String(x).trim());
+    const nm = x => x.tipe === 'Lainnya' ? (x.manual || 'Lainnya') : x.tipe;
+    const tgl = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '..........................';
     const I = D.id, K = D.kenal, U = D.tuj, B = D.bukti, tg = B.tugas, Z = D.ttd, PD = D.pend;
-    const tps = U.tp.map((t, i) => 'TP' + (i + 1) + ': ' + t).filter((x, i) => U.tp[i].trim());
-    const cover = [C('RANCANGAN PEMBELAJARAN MENDALAM', true), C(I.mapel || ''), C(I.topik || '')];
+    const nip = x => String(x || '').replace(/^\s*NIP\.?\s*/i, '');
+    const v = (x, d) => (x && String(x).trim()) ? x : (d || '..........................');
+    const content = [];
+
+    // Sampul
     if (D.cover) {
-      const raw = atob(D.cover.u.split(',')[1]), u8 = Uint8Array.from(raw, c => c.charCodeAt(0)), w = 360;
-      cover.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'jpg', data: u8, transformation: { width: w, height: Math.round(D.cover.h * w / D.cover.w) } })] }));
+      const u8 = Uint8Array.from(atob(D.cover.u.split(',')[1]), c => c.charCodeAt(0)), sc = Math.min(500 / D.cover.w, 700 / D.cover.h);
+      content.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'jpg', data: u8, transformation: { width: Math.round(D.cover.w * sc), height: Math.round(D.cover.h * sc) } })] }), new Paragraph({ children: [new PageBreak()] }));
     }
-    cover.push(C(I.sekolah || ''), C(I.tahun ? 'Tahun Pelajaran ' + I.tahun : ''), C(N(I.penyusun) ? 'Penyusun: ' + I.penyusun.filter(x => x.trim()).join(', ') : ''), new Paragraph({ children: [new PageBreak()] }));
-    const ch = [...cover,
-      new Paragraph({ text: 'IDENTITAS MODUL', heading: HeadingLevel.HEADING_1 }),
-      T([['Satuan pendidikan', I.sekolah], ['Penyusun', J(I.penyusun.filter(x => x.trim()))], ['Mata pelajaran', I.mapel], ['Topik utama', I.topik], ['Kelas / Fase / Semester', I.kelas + ' / Fase ' + FASE[I.kelas] + ' / ' + I.semester], ['Tahun pelajaran', I.tahun], ['Alokasi waktu', I.jp]]),
-      H('A. Kenali Murid'),
-      T([['Pengetahuan awal', K.awal], ['Minat belajar', K.minat], ['Kebutuhan belajar', K.kebutuhan.filter(x => x.tipe).map(x => (x.tipe === 'Lainnya' ? x.manual || 'Lainnya' : x.tipe) + ': ' + x.ket).join('\n')], ['Perkiraan hambatan belajar', K.hambatan], ['Materi pembelajaran', K.materi], ['Dimensi Profil Lulusan', J(K.dpl)]]),
-      H('B. Tahap 1 UbD: Tujuan Akhir'),
-      T([['Capaian Pembelajaran', N(U.cp)], ['Tujuan Pembelajaran', tps.join('\n')], ['Pemahaman abadi', U.abadi], ['Pertanyaan esensial', N(U.esensial)], ['Pengetahuan dan keterampilan kunci', U.kunci], ['Koneksi lintas disiplin', U.lintas.filter(x => x.mapel.trim()).map(x => x.mapel + ': ' + x.ket).join('\n')], ['Integrasi SDGs', U.sdgs.map(x => x.sdg + (x.ket ? ': ' + x.ket : '')).join('\n')]]),
-      H('C. Tahap 2 UbD: Bukti Asesmen'), P('Tugas kinerja: ' + tg.nama, true), P(tg.desk), P('TP yang diukur: ' + J(tg.tp)),
-      T([['Kriteria', ...LV], ...tg.rubrik.map(r => [r.k, ...r.l])], true), P('Asesmen awal, formatif, dan sumatif', true),
-      T([['Waktu', 'Jenis', 'Instrumen atau teknik', 'TP', 'Cara murid menunjukkan hasil'], ...B.lain.map(x => [x.waktu, jenis(x), x.detail, J(x.tp), x.cara])], true),
-      H('D. Pendekatan dan Lingkungan'),
-      T([['Model pembelajaran', N(PD.model)], ['Mindful learning', PD.mindful], ['Meaningful learning', PD.meaningful], ['Joyful learning', PD.joyful], ['Metode pembelajaran', N(PD.metode)], ['Ruang fisik', PD.fisik.filter(x => x.nama.trim()).map(x => x.nama + ': ' + x.suasana).join('\n')], ['Budaya belajar', N(PD.budaya)], ['TPACK / digital', PD.tpack.filter(x => x.alat).map(x => (x.alat === 'Lainnya' ? x.manual || 'Lainnya' : x.alat) + ': ' + x.ket).join('\n')]]),
-      H('E. Tahap 3 UbD: Pengalaman Belajar')
-    ];
-    const kg = (p, k) => p[k].map(x => '- ' + (x.tipe === 'Lainnya' ? x.manual || 'Lainnya' : x.tipe) + ': ' + x.detail).join('\n');
-    D.ped.forEach((p, i) => ch.push(P('Pertemuan ke-' + p.ke + ' (' + p.jp + (p.total ? ', ' + p.total : '') + ')', true), T([
-      ['TP yang dituju', J(p.tp)], ['Kegiatan awal' + (p.wAwal ? ' (' + p.wAwal + ' menit)' : ''), kg(p, 'awal')], ['Kegiatan inti' + (p.wInti ? ' (' + p.wInti + ' menit)' : ''), kg(p, 'inti')], ['Kegiatan penutup' + (p.wPenutup ? ' (' + p.wPenutup + ' menit)' : ''), kg(p, 'penutup')],
-      ['DUP: Keterlibatan', J(p.ket)], ['DUP: Representasi', J(p.rep)], ['DUP: Aksi dan Ekspresi', J(p.aks)], ['Catatan DUP', p.dupCat],
-      ['CASEL: kompetensi', J(p.sel)], ['CASEL: aktivitas', p.selAkt], ['CASEL: indikator dan penilaian', (p.selInd || '-') + ' (' + p.selNilai + ')']])));
-    ch.push(H('F. Peta Keterpaduan'),
-      T([['Pertemuan', 'TP', 'DUP', 'CASEL', 'Penilaian sosial emosional'], ...D.ped.map(p => ['' + p.ke, J(p.tp), [...p.ket, ...p.rep, ...p.aks].join('; ') || '-', J(p.sel), p.selNilai])], true),
-      H('G. Pengesahan'),
-      T([['Mengetahui,\nKepala Sekolah\n\n\n' + Z.kepsek + '\n' + Z.nipk, (Z.kota ? Z.kota + ', ' : '') + tgl(Z.tgl) + '\nGuru Mata Pelajaran\n\n\n' + Z.guru + '\n' + Z.nipg]]));
-    const blob = await gabung(await Packer.toBlob(new Document({ sections: [{ children: ch }] })));
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = 'RPM_' + (I.mapel || 'modul').replace(/[^\w]+/g, '_') + '.docx'; a.click();
+    content.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [R('RENCANA PEMBELAJARAN MENDALAM', { bold: true, size: 32 })], spacing: { after: 600 } }));
+
+    // 1. Identitas
+    const pen = ne(I.penyusun).map(num);
+    content.push(H('1. IDENTITAS MODUL', 0), T([row2('Sekolah', I.sekolah), row2('Penyusun', pen.length ? pen : '-'), row2('Mata Pelajaran', I.mapel), row2('Topik', I.topik), row2('Kelas/Fase/Sem', I.kelas + ' / Fase ' + FASE[I.kelas] + ' / ' + I.semester), row2('Alokasi Waktu', I.jp + ' (' + D.ped.length + 'x Pertemuan)'), row2('Tahun Pelajaran', I.tahun)], [3160, 5866]));
+
+    // 2. Identifikasi
+    const kb = K.kebutuhan.filter(x => x.tipe).map(x => bl(nm(x) || 'Kebutuhan', x.ket));
+    const dpl = K.dpl.map(b1);
+    content.push(H('2. IDENTIFIKASI PEMBELAJARAN'), T([
+      ...full('1. Peserta Didik', ''), ...full('   A Pengetahuan Awal', K.awal || '-'), ...full('   B Minat', K.minat || '-'), ...full('   C. Kebutuhan Belajar', ls(kb)), ...full('   D. Perkiraan Hambatan Belajar (DUP)', K.hambatan || '-'),
+      ...full('2. Materi Pembelajaran', K.materi || '-'), ...full('3. Dimensi Profil Lulusan', ls(dpl))]));
+
+    // 3. Desain (UbD tahap 1 + praktik pedagogis + lingkungan)
+    const tpL = U.tp.map((t, i) => t.trim() ? b1('TP' + (i + 1) + ': ' + t) : null).filter(Boolean);
+    const sd = U.sdgs.map(x => bl(x.sdg.replace(/^\d+\.\s*/, ''), x.ket));
+    const li = U.lintas.filter(x => x.mapel.trim()).map(x => bl(x.mapel, x.ket));
+    const fs = PD.fisik.filter(x => x.nama.trim()).map(x => new Paragraph({ children: [R('● ' + x.nama + ' ('), ...runs(x.suasana), R(')')], indent: IND, spacing: { after: 120 } }));
+    const tp = PD.tpack.filter(x => x.alat && x.ket).map(x => bl(x.alat === 'Lainnya' ? x.manual : x.alat, x.ket));
+    content.push(H('3. DESAIN PEMBELAJARAN'), T([
+      ...full('1. Capaian Pembelajaran', ls(ne(U.cp).map(b1))), ...full('2. Tujuan Pembelajaran', ls(tpL)),
+      ...full('3. Pemahaman Abadi (UbD)', U.abadi || '-'), ...full('4. Pertanyaan Esensial (UbD)', ls(ne(U.esensial).map(b1))), ...full('5. Pengetahuan dan Keterampilan Kunci', U.kunci || '-'),
+      ...full('6. Lintas Disiplin Ilmu', ls(li)), ...full('7. SDGs', ls(sd)),
+      ...full('8. Praktik Pedagogis', ''), ...full('    A. Model Pembelajaran:', ls(ne(PD.model).map(b1))), ...full('    B. Pendekatan (Deep Learning):', ''),
+      ...full('        ● Mindful', PD.mindful || '-'), ...full('        ● Meaningful', PD.meaningful || '-'), ...full('        ● Joyful', PD.joyful || '-'),
+      ...full('    C. Metode Pembelajaran:', ls(ne(PD.metode).map(b1))),
+      ...full('9. Lingkungan Belajar (Fisik & Budaya)', ''), ...full('    A. Ruang Fisik:', ls(fs)), ...full('    B. Budaya Belajar:', ls(ne(PD.budaya).map(b1))), ...full('    C. Pemanfaatan Digital:', ls(tp))]));
+
+    // 4. Asesmen (UbD tahap 2)
+    const as = (title, items) => [...full(title, ''), ...(items.length ? items : [bl('-', '')]).map(p => new TableRow({ children: [new TableCell({ width: W(100), children: [p] })] }))];
+    const lain = pref => B.lain.filter(x => x.waktu.startsWith(pref) && (x.detail.trim() || x.manual.trim())).map(x => new Paragraph({ children: [R('   ● ' + (x.jenis === 'Lainnya' ? x.manual || 'Lainnya' : x.jenis) + ': ', { bold: true }), ...runs(x.detail), new TextRun({ text: '', break: 1 }), R('      TP terkait: ' + (x.tp.join(', ') || '-') + '. Cara murid menunjukkan hasil: ' + x.cara + '.')], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } }));
+    const tugas = tg.nama.trim() ? [new Paragraph({ children: [R('   ● ' + tg.nama + ': ', { bold: true }), ...runs(tg.desk), new TextRun({ text: '', break: 1 }), R('      TP yang diukur: ' + (tg.tp.join(', ') || '-') + '.')], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } })] : [];
+    content.push(H('4. ASESMEN PEMBELAJARAN'), T([...as('A. Tugas Kinerja (Bukti Utama)', tugas), ...as('B. Asesmen Awal Pembelajaran', lain('Awal')), ...as('C. Asesmen Formatif', lain('Selama')), ...as('D. Asesmen Sumatif', lain('Akhir'))]));
+    const rb = tg.rubrik.filter(r => r.k.trim());
+    if (rb.length) {
+      const cell = (t, b, w) => new TableCell({ width: W(w), shading: b ? { fill: SH } : undefined, children: [std(t, b)] });
+      content.push(new Paragraph({ children: [R('Rubrik Penilaian Tugas Kinerja', { bold: true })], spacing: { before: 300, after: 120 } }),
+        T([new TableRow({ children: [cell('Kriteria', true, 20), ...LV.map(l => cell(l, true, 20))] }), ...rb.map(r => new TableRow({ children: [cell(r.k, true, 20), ...r.l.map(x => cell(x, false, 20))] }))], [1805, 1805, 1805, 1805, 1806]));
+    }
+
+    // 5. Pengalaman belajar (UbD tahap 3) + DUP + CASEL
+    content.push(H('5. PENGALAMAN BELAJAR'));
+    D.ped.forEach(p => {
+      const keg = (k, title, w) => [new TableRow({ children: [new TableCell({ children: [std('● ' + title.toUpperCase() + ' (' + (w || '0') + ' MENIT)', true)], columnSpan: 2, shading: { fill: SH } })] }),
+        ...p[k].map(x => new TableRow({ children: [new TableCell({ width: W(5), children: [ctr('○')] }), new TableCell({ width: W(95), children: [new Paragraph({ children: [R(nm(x) + ': ', { bold: true }), ...runs(x.detail)], spacing: { before: 80, after: 80 } })] })] }))];
+      const sec = (title, items) => [new TableRow({ children: [new TableCell({ children: [std('● ' + title, true)], columnSpan: 2, shading: { fill: SH } })] }),
+        ...items.map(([l, t]) => new TableRow({ children: [new TableCell({ width: W(5), children: [ctr('○')] }), new TableCell({ width: W(95), children: [new Paragraph({ children: [R(l + ': ', { bold: true }), ...runs(t)], spacing: { before: 80, after: 80 } })] })] }))];
+      content.push(ctr('PERTEMUAN ' + p.ke + ' (' + p.jp + ' : ' + (p.total || '-') + ')', { bold: true }), new Paragraph({ children: [R('Tujuan Pembelajaran yang dituju: ', { bold: true }), R(p.tp.join(', ') || '-')], spacing: { before: 100, after: 160 } }),
+        T([...keg('awal', 'Kegiatan Awal', p.wAwal), ...keg('inti', 'Kegiatan Inti', p.wInti), ...keg('penutup', 'Kegiatan Penutup', p.wPenutup),
+          ...sec('INTEGRASI DUP (DESAIN UNIVERSAL UNTUK PEMBELAJARAN)', [['Keterlibatan', p.ket.join(', ') || '-'], ['Representasi', p.rep.join(', ') || '-'], ['Aksi dan Ekspresi', p.aks.join(', ') || '-'], ...(p.dupCat.trim() ? [['Catatan', p.dupCat]] : [])]),
+          ...sec('INTEGRASI SOSIAL EMOSIONAL (CASEL)', [['Kompetensi', p.sel.join(', ') || '-'], ['Aktivitas', p.selAkt || '-'], ['Indikator', p.selInd || '-'], ['Cara menilai', p.selNilai]])], [450, 8576]),
+        new Paragraph({ children: [R('')], spacing: { after: 300 } }));
+    });
+
+    // 6. Peta keterpaduan
+    const pc = (t, b, w) => new TableCell({ width: W(w), shading: b ? { fill: SH } : undefined, children: [std(t, b)] });
+    content.push(H('6. PETA KETERPADUAN UbD, DUP, DAN CASEL'), T([new TableRow({ children: [pc('Pertemuan', true, 15), pc('TP', true, 13), pc('DUP', true, 34), pc('CASEL', true, 24), pc('Penilaian SEL', true, 14)] }),
+      ...D.ped.map(p => new TableRow({ children: [pc('' + p.ke, false, 12), pc(p.tp.join(', ') || '-', false, 14), pc([...p.ket, ...p.rep, ...p.aks].join('; ') || '-', false, 34), pc(p.sel.join(', ') || '-', false, 24), pc(p.selNilai, false, 16)] }))], [1350, 1150, 3100, 2200, 1226]));
+
+    // Pengesahan
+    const jabK = 'Kepala ' + v(I.sekolah), jabG = 'Guru Mata Pelajaran ' + v(I.mapel);
+    const cc = (...ps) => new TableCell({ children: ps });
+    content.push(new Paragraph({ text: '', spacing: { before: 400 } }), new Table({ width: W(100), columnWidths: [4513, 4513], borders: TableBorders.NONE, rows: [
+      new TableRow({ children: [cc(), cc(ctr(v(Z.kota, 'Semarang') + ', ' + tgl(Z.tgl)))] }),
+      new TableRow({ children: [cc(ctr('Mengetahui,'), ctr(jabK)), cc(ctr(jabG))] }),
+      new TableRow({ children: [cc(new Paragraph({ text: '', spacing: { before: 1000 } })), cc(new Paragraph({ text: '', spacing: { before: 1000 } }))] }),
+      new TableRow({ children: [cc(ctr(v(Z.kepsek), { bold: true, u: true }), ctr('NIP. ' + v(nip(Z.nipk)))), cc(ctr(v(Z.guru), { bold: true, u: true }), ctr('NIP. ' + v(nip(Z.nipg))))] })] }));
+
+    const doc = new Document({ numbering: { config: [{ reference: 'num', levels: [{ level: 0, format: 'decimal', text: '%1.', alignment: AlignmentType.START, style: { run: { size: 24, font: FN }, paragraph: { indent: { left: 450, hanging: 450 } } } }] }] }, sections: [{ children: content }] });
+    const blob = await gabung(await Packer.toBlob(doc));
+    const nama = ('RPM_' + v(I.mapel, 'Mapel') + '_' + v(I.topik, 'Topik') + '_Kelas' + I.kelas + '_' + v(I.tahun, 'Tahun')).replace(/[/\\?%*:|"<>]/g, '-');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nama + '.docx'; a.click();
   } catch (err) { console.error(err); alert('Gagal menyusun dokumen: ' + err.message); }
   btn.disabled = false; btn.textContent = 'Unduh RPM (.docx)';
 }
