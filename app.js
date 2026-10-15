@@ -271,7 +271,7 @@ $('reset').onclick = () => {
 async function unduh(btn) {
   btn.disabled = true; btn.textContent = 'Menyusun dokumen...';
   try {
-    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, ImageRun, AlignmentType, PageBreak, TableBorders, TableLayoutType } = docx;
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, ImageRun, AlignmentType, PageBreak, TableBorders, TableLayoutType, BorderStyle } = docx;
     const FN = 'Times New Roman', SH = 'F2F2F2';
     const R = (t, o = {}) => new TextRun({ text: t, font: FN, size: o.size || 24, bold: o.bold, underline: o.u ? {} : undefined });
     const runs = (t, o) => { const ls = String(t == null ? '' : t).split('\n'), out = []; ls.forEach((l, i) => { out.push(R(l, o)); if (i < ls.length - 1) out.push(new TextRun({ text: '', break: 1 })); }); return out; };
@@ -283,10 +283,12 @@ async function unduh(btn) {
     const num = t => new Paragraph({ children: runs(t), numbering: { reference: 'num', level: 0 }, spacing: { after: 120 } });
     const W = (n, c) => ({ size: n, type: WidthType.PERCENTAGE });
     const body = v => Array.isArray(v) ? v : [new Paragraph({ children: runs(v) })];
-    const row2 = (label, v) => new TableRow({ children: [new TableCell({ width: W(35), children: [std(label, true)] }), new TableCell({ width: W(65), children: body(v || '-') })] });
+    const row2 = (label, v) => new TableRow({ children: [new TableCell({ width: W(35), shading: { fill: SH }, children: [std(label, true)] }), new TableCell({ width: W(65), children: body(v || '-') })] });
     const full = (label, v) => { const r = [new TableRow({ children: [new TableCell({ width: W(100), shading: { fill: SH }, children: [std(label, true)] })] })]; if (v) r.push(new TableRow({ children: [new TableCell({ width: W(100), margins: { top: 100, bottom: 100, left: 100, right: 100 }, children: body(v) })] })); return r; };
-    const T = (rows, cw) => new Table({ width: W(100), columnWidths: cw || [9026], layout: TableLayoutType.FIXED, rows });
-    const H = (t, before) => new Paragraph({ children: [R(t, { bold: true, size: 28 })], spacing: { before: before || 400, after: 200 } });
+    const LN = { style: BorderStyle.SINGLE, size: 4, color: '7F8FA6' };
+    const T = (rows, cw) => new Table({ width: W(100), columnWidths: cw || [9026], layout: TableLayoutType.FIXED, margins: { top: 70, bottom: 70, left: 130, right: 130 },
+      borders: { top: LN, bottom: LN, left: LN, right: LN, insideHorizontal: LN, insideVertical: LN }, rows });
+    const H = (t, before) => new Paragraph({ children: [R(t, { bold: true, size: 28 })], spacing: { before: before || 400, after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: '1F3A5F', space: 3 } } });
     const ls = a => a.length ? a : '● -';
     const ne = a => a.filter(x => String(x).trim());
     const nm = x => x.tipe === 'Lainnya' ? (x.manual || 'Lainnya') : x.tipe;
@@ -301,10 +303,10 @@ async function unduh(btn) {
       const u8 = Uint8Array.from(atob(D.cover.u.split(',')[1]), c => c.charCodeAt(0)), sc = Math.min(500 / D.cover.w, 700 / D.cover.h);
       content.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'jpg', data: u8, transformation: { width: Math.round(D.cover.w * sc), height: Math.round(D.cover.h * sc) } })] }), new Paragraph({ children: [new PageBreak()] }));
     }
-    content.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [R('RENCANA PEMBELAJARAN MENDALAM', { bold: true, size: 32 })], spacing: { after: 600 } }));
+    content.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [R('RENCANA PEMBELAJARAN MENDALAM', { bold: true, size: 32 })], spacing: { after: 500 }, border: { bottom: { style: BorderStyle.DOUBLE, size: 6, color: '1F3A5F', space: 8 } } }));
 
     // 1. Identitas
-    const pen = ne(I.penyusun).map(num);
+    const pn = ne(I.penyusun), pen = pn.length > 1 ? pn.map(num) : pn.map(x => new Paragraph({ children: runs(x) }));
     content.push(H('1. IDENTITAS MODUL', 0), T([row2('Sekolah', I.sekolah), row2('Penyusun', pen.length ? pen : '-'), row2('Mata Pelajaran', I.mapel), row2('Topik', I.topik), row2('Kelas/Fase/Sem', I.kelas + ' / Fase ' + FASE[I.kelas] + ' / ' + I.semester), row2('Alokasi Waktu', I.jp + ' (' + D.ped.length + 'x Pertemuan)'), row2('Tahun Pelajaran', I.tahun)], [3160, 5866]));
 
     // 2. Identifikasi
