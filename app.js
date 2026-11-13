@@ -37,6 +37,7 @@ const blankR = () => ({ tp: '', k: '', l: ['', '', '', ''] });
 const blankS = () => ({ k: '', ind: '', nilai: 'Observasi' });
 const blankM = () => ({ jenis: '', manual: '', nama: '', peran: '' });
 const blank = () => ({
+  mode: '',
   cover: null,
   id: { sekolah: '', penyusun: [''], mapel: '', topik: '', kelas: 'VII', semester: 'Ganjil', tahun: '', jp: '2 JP' },
   kenal: { awal: '', minat: '', emosi: '', kebutuhan: [{ tipe: '', manual: '', ket: '' }], materi: '', hambatan: '', dpl: [] },
@@ -61,6 +62,10 @@ const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&am
 let D, cur = 0;
 try { D = JSON.parse(localStorage.getItem(KEY)); } catch (e) { D = null; }
 if (!D || !D.ped || !D.tuj || D.tuj.kunciP === undefined) D = blank();
+if (D.mode === undefined) D.mode = 'terpadu'; /* data lama tetap memakai mode lengkap */
+const um = () => D.mode === 'umum';
+const NAMA_UMUM = [null, null, 'Tujuan Pembelajaran', 'Asesmen', 'Kegiatan Pembelajaran'];
+const sn = i => (um() && NAMA_UMUM[i]) || STEPS[i][0];
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { $('saved').textContent = 'Penyimpanan penuh (gambar terlalu besar?)'; return; }
   $('saved').textContent = 'Tersimpan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -101,31 +106,31 @@ const STEPS = [
     ${LIST('Penyusun', 'id.penyusun', 'Nama lengkap penyusun')}</div>`],
   ['Kenali Murid', () => `<div class="card">${head('Kenali Murid', 'Mulailah dari murid: apa yang sudah mereka bawa dan apa yang mungkin menghambat.')}
     ${F('Pengetahuan awal', 'kenal.awal', { area: 3, ph: 'Contoh: Murid sudah mampu ..., tetapi belum mengenal ...' })}${F('Minat belajar', 'kenal.minat', { area: 2, ph: 'Contoh: Murid menyukai kerja kelompok dan permainan' })}
-    ${F('Kondisi emosional dan latar belakang murid', 'kenal.emosi', { area: 2, ph: 'Contoh: Sebagian murid cemas saat tampil di depan kelas; ada murid yang baru pindah sekolah', hint: 'Dasar penerapan CASEL: guru mengenali kondisi emosional dan latar belakang murid, bukan hanya kemampuannya.' })}
+    ${um() ? '' : F('Kondisi emosional dan latar belakang murid', 'kenal.emosi', { area: 2, ph: 'Contoh: Sebagian murid cemas saat tampil di depan kelas; ada murid yang baru pindah sekolah', hint: 'Dasar penerapan CASEL: guru mengenali kondisi emosional dan latar belakang murid, bukan hanya kemampuannya.' })}
     <div class="f"><span>Kebutuhan belajar</span>${D.kenal.kebutuhan.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`kenal.kebutuhan.${i}.tipe`, KB, 1)}${DEL('kenal.kebutuhan', i)}</div>${MAN(`kenal.kebutuhan.${i}`, 'Kategori manual...')}${TA(`kenal.kebutuhan.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('kenal.kebutuhan', '+ Kebutuhan')}</div>
-    ${F('Perkiraan hambatan belajar', 'kenal.hambatan', { area: 2, ph: 'Contoh: Sebagian murid takut salah dan enggan mencoba', hint: 'Dasar DUP: hambatan diperkirakan sejak awal, lalu jalurnya disiapkan sejak awal.' })}
+    ${um() ? '' : F('Perkiraan hambatan belajar', 'kenal.hambatan', { area: 2, ph: 'Contoh: Sebagian murid takut salah dan enggan mencoba', hint: 'Dasar DUP: hambatan diperkirakan sejak awal, lalu jalurnya disiapkan sejak awal.' })}
     ${F('Materi pembelajaran', 'kenal.materi', { area: 3, ph: 'Rincian cakupan materi...' })}
     <h3>Dimensi Profil Lulusan (DPL)</h3>${CHK('kenal.dpl', DPL)}</div>`],
-  ['Tahap 1: Tujuan Akhir', () => `<div class="card"><span class="tag t-ubd">UbD · Tahap 1</span>${head('Tujuan Akhir', 'Apa yang harus murid pahami dan mampu lakukan di akhir?')}
+  ['Tahap 1: Tujuan Akhir', () => `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 1</span>'}${um() ? head('Tujuan Pembelajaran', 'Capaian dan tujuan pembelajaran yang ingin dicapai murid.') : head('Tujuan Akhir', 'Apa yang harus murid pahami dan mampu lakukan di akhir?')}
     ${LIST('Capaian Pembelajaran (CP)', 'tuj.cp', 'Salin elemen atau deskripsi CP sesuai fase', '', 1)}${LIST('Tujuan Pembelajaran (TP)', 'tuj.tp', 'Contoh: Murid mampu menjelaskan ...', 'Awali dengan "Murid mampu" diikuti kata kerja yang bisa diamati, seperti menjelaskan atau mendemonstrasikan.', 1)}
-    ${F('Pemahaman abadi', 'tuj.abadi', { area: 2, ph: 'Contoh: gagasan besar yang tetap diingat murid, ditulis sebagai kalimat lengkap', hint: 'Gagasan besar yang tetap diingat murid lama setelah pelajaran. Bukan judul topik.' })}
+    ${um() ? '' : `${F('Pemahaman abadi', 'tuj.abadi', { area: 2, ph: 'Contoh: gagasan besar yang tetap diingat murid, ditulis sebagai kalimat lengkap', hint: 'Gagasan besar yang tetap diingat murid lama setelah pelajaran. Bukan judul topik.' })}
     ${LIST('Pertanyaan esensial', 'tuj.esensial', 'Contoh: Apa yang membuat ... ?', 'Pertanyaan terbuka yang tidak punya satu jawaban pendek.', 1)}
     <div class="g2">${F('Pengetahuan kunci', 'tuj.kunciP', { area: 3, ph: 'Apa yang harus murid tahu? Contoh: istilah, konsep, aturan', hint: 'Fakta, istilah, konsep, atau aturan yang perlu diketahui murid agar tujuan tercapai.' })}${F('Keterampilan kunci', 'tuj.kunciK', { area: 3, ph: 'Apa yang harus murid bisa lakukan? Contoh: langkah, teknik', hint: 'Kemampuan yang perlu dipraktikkan murid agar tujuan tercapai.' })}</div>
-    <h3>Tujuan sosial emosional (CASEL)</h3><p class="hint">Pilih satu atau dua kompetensi yang dituju modul ini.</p>${CHK('tuj.selTuju', SEL)}
+    <h3>Tujuan sosial emosional (CASEL)</h3><p class="hint">Pilih satu atau dua kompetensi yang dituju modul ini.</p>${CHK('tuj.selTuju', SEL)}`}
     <div class="f"><span>Koneksi lintas disiplin ilmu</span>${D.tuj.lintas.map((x, i) => `<div class="row"><input data-p="tuj.lintas.${i}.mapel" value="${esc(x.mapel)}" placeholder="Mata pelajaran"><input data-p="tuj.lintas.${i}.ket" value="${esc(x.ket)}" placeholder="Keterangan integrasi">${DEL('tuj.lintas', i)}</div>`).join('')}${ADDB('tuj.lintas', '+ Tambah')}</div>
     <div class="f"><span>Integrasi SDGs</span>${D.tuj.sdgs.map((x, i) => `<div class="row">${SO(`tuj.sdgs.${i}.sdg`, SDG)}<input data-p="tuj.sdgs.${i}.ket" value="${esc(x.ket)}" placeholder="Deskripsi...">${DEL('tuj.sdgs', i)}</div>`).join('')}${ADDB('tuj.sdgs', '+ Tambah')}</div></div>`],
-  ['Tahap 2: Bukti Asesmen', () => { const t = D.bukti.tugas; return `<div class="card"><span class="tag t-ubd">UbD · Tahap 2</span>${head('Bukti Asesmen', 'Tentukan bukti keberhasilan sebelum merancang kegiatan.')}
-    <h3>A. Asesmen utama (tugas kinerja)</h3>${F('Nama tugas', 'bukti.tugas.nama', { ph: 'Contoh: Presentasi hasil investigasi' })}${F('Deskripsi tugas', 'bukti.tugas.desk', { area: 3, ph: 'Contoh: Murid melakukan ..., lalu menjelaskan ...' })}
+  ['Tahap 2: Bukti Asesmen', () => { const t = D.bukti.tugas; return `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 2</span>'}${um() ? head('Asesmen', 'Rencanakan asesmen awal, formatif, dan sumatif.') : head('Bukti Asesmen', 'Tentukan bukti keberhasilan sebelum merancang kegiatan.')}
+    ${um() ? '' : `<h3>A. Asesmen utama (tugas kinerja)</h3>${F('Nama tugas', 'bukti.tugas.nama', { ph: 'Contoh: Presentasi hasil investigasi' })}${F('Deskripsi tugas', 'bukti.tugas.desk', { area: 3, ph: 'Contoh: Murid melakukan ..., lalu menjelaskan ...' })}
     <div class="scroll"><table class="rb"><tr><th>TP</th><th>Kriteria</th>${LV.map(l => `<th>${l}</th>`).join('')}<th></th></tr>
-    ${t.rubrik.map((r, i) => `<tr><td style="min-width:90px">${SO(`bukti.tugas.rubrik.${i}.tp`, tpShort())}</td><td><input data-p="bukti.tugas.rubrik.${i}.k" value="${esc(r.k)}" placeholder="Contoh: Ketepatan"></td>${r.l.map((v, j) => `<td><textarea rows="3" data-p="bukti.tugas.rubrik.${i}.l.${j}">${esc(v)}</textarea></td>`).join('')}<td>${DEL('bukti.tugas.rubrik', i)}</td></tr>`).join('')}</table></div>${ADDB('bukti.tugas.rubrik', '+ Tambah kriteria')}
-    <h3>B. Asesmen pendukung (awal, formatif, sumatif)</h3>
+    ${t.rubrik.map((r, i) => `<tr><td style="min-width:90px">${SO(`bukti.tugas.rubrik.${i}.tp`, tpShort())}</td><td><input data-p="bukti.tugas.rubrik.${i}.k" value="${esc(r.k)}" placeholder="Contoh: Ketepatan"></td>${r.l.map((v, j) => `<td><textarea rows="3" data-p="bukti.tugas.rubrik.${i}.l.${j}">${esc(v)}</textarea></td>`).join('')}<td>${DEL('bukti.tugas.rubrik', i)}</td></tr>`).join('')}</table></div>${ADDB('bukti.tugas.rubrik', '+ Tambah kriteria')}`}
+    <h3>${um() ? 'Asesmen awal, formatif, dan sumatif' : 'B. Asesmen pendukung (awal, formatif, sumatif)'}</h3>
     ${D.bukti.lain.map((x, i) => `<div class="blk" style="--c:var(--ubd)"><div class="g2">${S('Waktu', `bukti.lain.${i}.waktu`, WAKTU, 1)}<label class="f"><span>Jenis</span>${SO(`bukti.lain.${i}.jenis`, JENISW[x.waktu] || JENISW[WAKTU[0]], 1)}${x.jenis === 'Lainnya' ? `<input style="margin-top:6px" data-p="bukti.lain.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis manual...">` : ''}</label></div>
     ${F('Instrumen atau teknik', `bukti.lain.${i}.detail`, { area: 2, ph: 'Contoh: Guru mengamati ... memakai daftar cek berisi ... aspek' })}<label class="f"><span>TP terkait</span></label>${CHK(`bukti.lain.${i}.tp`, tpOpts())}
-    <label class="f"><span>Cara murid menunjukkan hasil (DUP)</span></label>${CHK(`bukti.lain.${i}.cara`, CARA)}<input data-p="bukti.lain.${i}.caraLain" value="${esc(x.caraLain)}" placeholder="Lainnya: tulis cara sendiri (opsional)" style="margin-bottom:10px"><button class="x" data-del="bukti.lain:${i}">Hapus bukti ini</button></div>`).join('')}
+    ${um() ? '' : `<label class="f"><span>Cara murid menunjukkan hasil (DUP)</span></label>${CHK(`bukti.lain.${i}.cara`, CARA)}<input data-p="bukti.lain.${i}.caraLain" value="${esc(x.caraLain)}" placeholder="Lainnya: tulis cara sendiri (opsional)" style="margin-bottom:10px">`}<button class="x" data-del="bukti.lain:${i}">Hapus bukti ini</button></div>`).join('')}
     ${ADDB('bukti.lain', '+ Tambah asesmen')}
-    <h3>C. Penilaian sosial emosional (CASEL)</h3><p class="hint">Tiap kompetensi yang dituju perlu punya indikator dan cara menilai.</p>
-    ${D.bukti.sel.map((x, i) => `<div class="blk" style="--c:var(--sel)"><div class="row">${SO(`bukti.sel.${i}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL('bukti.sel', i)}</div>${TA(`bukti.sel.${i}.ind`, 'Indikator perilaku yang diamati. Contoh: murid memberi semangat pada rekan yang belum berhasil')}${S('Cara menilai', `bukti.sel.${i}.nilai`, NILAI)}</div>`).join('')}${ADDB('bukti.sel', '+ Tambah penilaian CASEL')}</div>`; }],
-  ['Tahap 3: Pengalaman Belajar', () => `<div class="card"><span class="tag t-ubd">UbD · Tahap 3</span>${head('Pengalaman Belajar', 'Rancang kegiatan yang mengantar murid ke bukti di Tahap 2, sambil menyisipkan DUP dan CASEL.')}</div>
+    ${um() ? '' : `<h3>C. Penilaian sosial emosional (CASEL)</h3><p class="hint">Tiap kompetensi yang dituju perlu punya indikator dan cara menilai.</p>
+    ${D.bukti.sel.map((x, i) => `<div class="blk" style="--c:var(--sel)"><div class="row">${SO(`bukti.sel.${i}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL('bukti.sel', i)}</div>${TA(`bukti.sel.${i}.ind`, 'Indikator perilaku yang diamati. Contoh: murid memberi semangat pada rekan yang belum berhasil')}${S('Cara menilai', `bukti.sel.${i}.nilai`, NILAI)}</div>`).join('')}${ADDB('bukti.sel', '+ Tambah penilaian CASEL')}`}</div>`; }],
+  ['Tahap 3: Pengalaman Belajar', () => `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 3</span>'}${um() ? head('Kegiatan Pembelajaran', 'Rancang kegiatan belajar untuk tiap pertemuan.') : head('Pengalaman Belajar', 'Rancang kegiatan yang mengantar murid ke bukti di Tahap 2, sambil menyisipkan DUP dan CASEL.')}</div>
     ${D.ped.map((p, i) => { const w = wInfo(p); return `<div class="card"><h3 style="margin-top:0">Pertemuan ${i + 1}</h3>
     <div class="g3">${S('Pertemuan ke-', `ped.${i}.ke`, [1, 2, 3, 4, 5, 6, 7, 8].map(String))}${S('Alokasi JP', `ped.${i}.jp`, JP, 1)}${F('Menit per JP', `ped.${i}.mJP`, { type: 'number', min: 1 })}</div>
     <p class="hint" id="tot${i}" style="margin-top:-6px">${w.tot}</p>
@@ -133,10 +138,10 @@ const STEPS = [
     ${Object.keys(KEGT).map(k => `<div class="blk" style="--c:var(--ubd)"><div class="row"><h4 style="flex:1">${KEGT[k][0]}</h4><input type="number" min="0" style="max-width:110px" data-p="ped.${i}.${KEGT[k][1]}" value="${esc(g(D, `ped.${i}.${KEGT[k][1]}`))}" placeholder="0"><span class="unit">menit</span></div>
       ${p[k].map((x, j) => `<div class="row" style="align-items:flex-start"><div style="flex:1">${SO(`ped.${i}.${k}.${j}.tipe`, KEG[k], 1)}${MAN(`ped.${i}.${k}.${j}`)}</div><div style="flex:3"><textarea rows="2" data-p="ped.${i}.${k}.${j}.detail" placeholder="Detail langkah...">${esc(x.detail)}</textarea></div>${DEL(`ped.${i}.${k}`, j)}</div>`).join('')}${ADDB(`ped.${i}.${k}`, '+ Sub-kegiatan')}</div>`).join('')}
     <p class="${w.cls}" id="wm${i}">${w.msg}</p>
-    ${Object.keys(DUP).map(k => `<div class="blk" style="--c:var(--dup)"><span class="tag t-dup">DUP</span><h4>${DUP[k].t}</h4><p>${DUP[k].q}</p>${CHK(`ped.${i}.${k}`, DUP[k].o)}<input data-p="ped.${i}.${k}Lain" value="${esc(p[k + 'Lain'])}" placeholder="Lainnya: tulis strategi sendiri (opsional)"></div>`).join('')}
+    ${um() ? '' : `${Object.keys(DUP).map(k => `<div class="blk" style="--c:var(--dup)"><span class="tag t-dup">DUP</span><h4>${DUP[k].t}</h4><p>${DUP[k].q}</p>${CHK(`ped.${i}.${k}`, DUP[k].o)}<input data-p="ped.${i}.${k}Lain" value="${esc(p[k + 'Lain'])}" placeholder="Lainnya: tulis strategi sendiri (opsional)"></div>`).join('')}
     ${F('Catatan strategi DUP lain', `ped.${i}.dupCat`, { area: 2, ph: 'Rincian pelaksanaan strategi DUP yang dipilih' })}
     <div class="blk" style="--c:var(--sel)"><span class="tag t-sel">CASEL</span><h4>Integrasi sosial emosional</h4><p>Tambahkan satu entri untuk tiap kompetensi yang dilatih pada pertemuan ini.</p>
-    ${p.casel.map((c, j) => `<div class="blk" style="--c:var(--sel);background:#fff"><div class="row">${SO(`ped.${i}.casel.${j}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL(`ped.${i}.casel`, j)}</div>${TA(`ped.${i}.casel.${j}.akt`, 'Aktivitas. Contoh: check-in perasaan di pembuka, kerja kelompok bergilir, refleksi penutup')}</div>`).join('')}${ADDB(`ped.${i}.casel`, '+ CASEL')}</div>
+    ${p.casel.map((c, j) => `<div class="blk" style="--c:var(--sel);background:#fff"><div class="row">${SO(`ped.${i}.casel.${j}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL(`ped.${i}.casel`, j)}</div>${TA(`ped.${i}.casel.${j}.akt`, 'Aktivitas. Contoh: check-in perasaan di pembuka, kerja kelompok bergilir, refleksi penutup')}</div>`).join('')}${ADDB(`ped.${i}.casel`, '+ CASEL')}</div>`}
     ${D.ped.length > 1 ? `<button class="x" data-del="ped:${i}">Hapus pertemuan ini</button>` : ''}</div>`; }).join('')}
     ${ADDB('ped', '+ Tambah pertemuan')}`],
   ['Pendekatan dan Lingkungan', () => `<div class="card">${head('Pendekatan dan Lingkungan', 'Model, metode, kemitraan, dan lingkungan belajar yang mendukung rancangan.')}
@@ -151,7 +156,7 @@ const STEPS = [
   ['Lampiran', () => `<div class="card">${head('Lampiran (.docx)', 'Berkas yang diunggah di sini digabungkan di akhir dokumen saat diunduh.')}
     <div class="g2"><label class="f"><span>Judul lampiran</span><input id="judulLamp" placeholder="Contoh: LKPD 1"></label><label class="f"><span>Berkas .docx</span><input type="file" id="fileLamp" accept=".docx" multiple></label></div>
     <button class="add" data-act="addlamp">+ Tambahkan ke daftar</button><div id="lamp" style="margin-top:14px"></div></div>`],
-  ['Ringkasan dan Unduh', () => `<div class="card">${head('Ringkasan dan Unduh', 'Periksa keterpaduan UbD, DUP, dan CASEL sebelum mengunduh.')}
+  ['Ringkasan dan Unduh', () => `<div class="card">${head('Ringkasan dan Unduh', um() ? 'Periksa kelengkapan sebelum mengunduh.' : 'Periksa keterpaduan UbD, DUP, dan CASEL sebelum mengunduh.')}
     <ul style="list-style:none;padding:0">${checks().map(([k, ok, m]) => `<li style="padding:6px 0"><span class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'}</span> <b>${k}</b> · ${esc(m)}</li>`).join('')}</ul>
     <button class="big" data-act="dl">Unduh RPM (.docx)</button></div>`]
 ];
@@ -161,6 +166,11 @@ function checks() {
   const L = [], add = (k, ok, m) => L.push([k, ok, m]);
   const tp = D.tuj.tp.map((t, i) => [t, 'TP' + (i + 1)]).filter(x => x[0].trim());
   const cov = n => tugasTP().includes(n) || D.bukti.lain.some(x => x.tp.includes(n));
+  if (um()) {
+    add('Kelengkapan', tp.length > 0, 'Tujuan pembelajaran terisi');
+    tp.forEach(([t, n]) => { add('Kelengkapan', D.bukti.lain.some(x => x.tp.includes(n)), n + ' punya asesmen'); add('Kelengkapan', D.ped.some(x => x.tp.includes(n)), n + ' dilatih di suatu pertemuan'); });
+    return L;
+  }
   add('UbD', !!D.tuj.abadi.trim(), 'Pemahaman abadi terisi');
   add('UbD', D.tuj.esensial.some(x => x.trim()), 'Pertanyaan esensial terisi');
   add('UbD', tp.length > 0, 'Tujuan pembelajaran terisi');
@@ -176,7 +186,7 @@ function checks() {
 }
 function cek() {
   const c = checks();
-  $('cek').innerHTML = ['UbD', 'DUP', 'CASEL'].map(k => { const a = c.filter(x => x[0] === k), n = a.filter(x => x[1]).length; return `<li><span>${k}</span><span class="${n === a.length ? 'ok' : 'warn'}">${n}/${a.length}</span></li>`; }).join('');
+  $('cek').innerHTML = (um() ? ['Kelengkapan'] : ['UbD', 'DUP', 'CASEL']).map(k => { const a = c.filter(x => x[0] === k), n = a.filter(x => x[1]).length; return `<li><span>${k}</span><span class="${n === a.length ? 'ok' : 'warn'}">${n}/${a.length}</span></li>`; }).join('');
 }
 
 /* ---------- lampiran (IndexedDB) ---------- */
@@ -246,12 +256,25 @@ function bacaSampul(file) {
   r.readAsDataURL(file);
 }
 
+/* ---------- pilihan mode ---------- */
+const chooser = () => `<div class="card">${head('Pilih jenis rancangan', 'Anda bisa berpindah mode kapan saja lewat pilihan di pojok kanan atas. Isian yang sudah ditulis tidak hilang.')}
+  <div class="g2">
+    <div class="blk" style="--c:var(--pri)"><h4>Mode Umum</h4><p>Komponen RPM yang sudah umum dikenal: identitas, tujuan pembelajaran, kegiatan awal, inti, dan penutup, serta asesmen. Cocok untuk memulai.</p><button data-act="mode" data-m="umum">Pakai mode Umum</button></div>
+    <div class="blk" style="--c:var(--dup)"><h4>Mode Terintegrasi (UbD, DUP, CASEL)</h4><p>Menambahkan pemahaman abadi, bukti asesmen bertahap, pilihan DUP, dan integrasi sosial emosional.</p><button data-act="mode" data-m="terpadu">Pakai mode Terintegrasi</button></div>
+  </div></div>`;
+
 /* ---------- render dan navigasi ---------- */
 function render(top) {
+  $('modeSw').value = D.mode || '';
+  if (!D.mode) {
+    $('view').innerHTML = chooser(); $('steps').innerHTML = ''; $('cek').innerHTML = ''; $('pos').textContent = '';
+    $('prev').disabled = true; $('next').disabled = true; if (top) window.scrollTo(0, 0); return;
+  }
   $('view').innerHTML = STEPS[cur][1]();
-  $('steps').innerHTML = STEPS.map((s, i) => `<li data-s="${i}" class="${i === cur ? 'on' : ''}">${i + 1}. ${s[0]}</li>`).join('');
+  $('steps').innerHTML = STEPS.map((s, i) => `<li data-s="${i}" class="${i === cur ? 'on' : ''}">${i + 1}. ${sn(i)}</li>`).join('');
   $('pos').textContent = 'Langkah ' + (cur + 1) + ' dari ' + STEPS.length;
   $('prev').disabled = cur === 0; $('next').disabled = cur === STEPS.length - 1;
+  $('cekH').textContent = um() ? 'Cek kelengkapan' : 'Cek keterpaduan';
   cek(); if (top) window.scrollTo(0, 0); if (STEPS[cur][0] === 'Lampiran') listLamp();
 }
 function del(p, i) {
@@ -282,6 +305,7 @@ $('view').onchange = e => {
 $('view').onclick = async e => {
   const b = e.target.closest('button'); if (!b) return;
   const a = b.dataset.act;
+  if (a === 'mode') { D.mode = b.dataset.m; save(); return render(true); }
   if (a === 'dl') return unduh(b);
   if (a === 'rmcover') { D.cover = null; save(); return render(); }
   if (a === 'addlamp') return addLamp();
@@ -289,6 +313,7 @@ $('view').onclick = async e => {
   if (b.dataset.add) { g(D, b.dataset.add).push(mk(b.dataset.add)); save(); render(); }
   if (b.dataset.del) { const [p, i] = b.dataset.del.split(':'); del(p, +i); save(); render(); }
 };
+$('modeSw').onchange = e => { D.mode = e.target.value; save(); render(true); };
 $('steps').onclick = e => { const li = e.target.closest('li'); if (li) { cur = +li.dataset.s; render(true); } };
 $('prev').onclick = () => { cur--; render(true); };
 $('next').onclick = () => { cur++; render(true); };
@@ -346,7 +371,7 @@ async function unduh(btn) {
     const kb = K.kebutuhan.filter(x => x.tipe).map(x => bl(nm(x) || 'Kebutuhan', x.ket));
     content.push(H('2. IDENTIFIKASI PEMBELAJARAN'), T([
       ...full('1. Peserta Didik', ''), ...full('   A Pengetahuan Awal', K.awal || '-'), ...full('   B Minat', K.minat || '-'), ...full('   C. Kebutuhan Belajar', ls(kb)),
-      ...full('   D. Kondisi Emosional dan Latar Belakang', K.emosi || '-'), ...full('   E. Perkiraan Hambatan Belajar (DUP)', K.hambatan || '-'),
+      ...(um() ? [] : [...full('   D. Kondisi Emosional dan Latar Belakang', K.emosi || '-'), ...full('   E. Perkiraan Hambatan Belajar (DUP)', K.hambatan || '-')]),
       ...full('2. Materi Pembelajaran', K.materi || '-'), ...full('3. Dimensi Profil Lulusan', ls(K.dpl.map(b1)))]));
 
     // 3. Desain (UbD tahap 1, praktik pedagogis, kemitraan, lingkungan)
@@ -356,20 +381,21 @@ async function unduh(btn) {
     const mit = PD.mitra.filter(x => x.jenis).map(x => bl((x.jenis === 'Lainnya' ? x.manual || 'Lainnya' : x.jenis) + (x.nama.trim() ? ' (' + x.nama + ')' : ''), x.peran));
     const fs = PD.fisik.filter(x => x.nama.trim()).map(x => new Paragraph({ children: [R('● ' + x.nama + ' ('), ...runs(x.suasana), R(')')], indent: IND, spacing: { after: 120 } }));
     const tp = PD.tpack.filter(x => x.alat && x.ket).map(x => bl(x.alat === 'Lainnya' ? x.manual : x.alat, x.ket));
+    let nn = 0; const nl = t => (++nn) + '. ' + t;
     content.push(H('3. DESAIN PEMBELAJARAN'), T([
-      ...full('1. Capaian Pembelajaran', ls(ne(U.cp).map(b1))), ...full('2. Tujuan Pembelajaran', ls(tpL)),
-      ...full('3. Pemahaman Abadi (UbD)', U.abadi || '-'), ...full('4. Pertanyaan Esensial (UbD)', ls(ne(U.esensial).map(b1))),
-      ...full('5. Pengetahuan Kunci', U.kunciP || '-'), ...full('6. Keterampilan Kunci', U.kunciK || '-'),
-      ...full('7. Tujuan Sosial Emosional (CASEL)', ls(U.selTuju.map(b1))),
-      ...full('8. Lintas Disiplin Ilmu', ls(li)), ...full('9. SDGs', ls(sd)),
-      ...full('10. Praktik Pedagogis', ''), ...full('    A. Model Pembelajaran:', ls(ne(PD.model).map(b1))), ...full('    B. Pendekatan (Deep Learning):', ''),
+      ...full(nl('Capaian Pembelajaran'), ls(ne(U.cp).map(b1))), ...full(nl('Tujuan Pembelajaran'), ls(tpL)),
+      ...(um() ? [] : [...full(nl('Pemahaman Abadi (UbD)'), U.abadi || '-'), ...full(nl('Pertanyaan Esensial (UbD)'), ls(ne(U.esensial).map(b1))),
+        ...full(nl('Pengetahuan Kunci'), U.kunciP || '-'), ...full(nl('Keterampilan Kunci'), U.kunciK || '-'),
+        ...full(nl('Tujuan Sosial Emosional (CASEL)'), ls(U.selTuju.map(b1)))]),
+      ...full(nl('Lintas Disiplin Ilmu'), ls(li)), ...full(nl('SDGs'), ls(sd)),
+      ...full(nl('Praktik Pedagogis'), ''), ...full('    A. Model Pembelajaran:', ls(ne(PD.model).map(b1))), ...full('    B. Pendekatan (Deep Learning):', ''),
       ...full('        ● Mindful', PD.mindful || '-'), ...full('        ● Meaningful', PD.meaningful || '-'), ...full('        ● Joyful', PD.joyful || '-'),
       ...full('    C. Metode Pembelajaran:', ls(ne(PD.metode).map(b1))),
-      ...full('11. Kemitraan Pembelajaran', ls(mit)),
-      ...full('12. Lingkungan Belajar (Fisik & Budaya)', ''), ...full('    A. Ruang Fisik:', ls(fs)), ...full('    B. Budaya Belajar:', ls(ne(PD.budaya).map(b1))), ...full('    C. Pemanfaatan Digital:', ls(tp))]));
+      ...full(nl('Kemitraan Pembelajaran'), ls(mit)),
+      ...full(nl('Lingkungan Belajar (Fisik & Budaya)'), ''), ...full('    A. Ruang Fisik:', ls(fs)), ...full('    B. Budaya Belajar:', ls(ne(PD.budaya).map(b1))), ...full('    C. Pemanfaatan Digital:', ls(tp))]));
 
     // 4. Pengalaman belajar (UbD tahap 3) + DUP + CASEL
-    content.push(H('4. PENGALAMAN BELAJAR'));
+    content.push(H(um() ? '4. KEGIATAN PEMBELAJARAN' : '4. PENGALAMAN BELAJAR'));
     D.ped.forEach(p => {
       const n = parseInt(p.jp) || 0, m = +p.mJP || 0;
       const keg = (k, title, w) => [new TableRow({ children: [new TableCell({ children: [std('● ' + title.toUpperCase() + ' (' + (w || '0') + ' MENIT)', true)], columnSpan: 2, shading: { fill: SH } })] }),
@@ -379,20 +405,20 @@ async function unduh(btn) {
       const cs = p.casel.filter(c => c.k).map(c => [c.k, c.akt || '-']);
       content.push(ctr('PERTEMUAN ' + p.ke + ' (' + p.jp + ' : ' + n + ' x ' + m + ' menit)', { bold: true }), new Paragraph({ children: [R('Tujuan Pembelajaran yang dituju: ', { bold: true }), R(p.tp.join(', ') || '-')], spacing: { before: 100, after: 160 } }),
         T([...keg('awal', 'Kegiatan Awal', p.wAwal), ...keg('inti', 'Kegiatan Inti', p.wInti), ...keg('penutup', 'Kegiatan Penutup', p.wPenutup),
-          ...sec('INTEGRASI DUP (DESAIN UNIVERSAL UNTUK PEMBELAJARAN)', [['Keterlibatan', gab(p.ket, p.ketLain)], ['Representasi', gab(p.rep, p.repLain)], ['Aksi dan Ekspresi', gab(p.aks, p.aksLain)], ...(p.dupCat.trim() ? [['Catatan', p.dupCat]] : [])]),
-          ...sec('INTEGRASI SOSIAL EMOSIONAL (CASEL)', cs.length ? cs : [['Kompetensi', '-']])], [450, 8576]),
+          ...(um() ? [] : [...sec('INTEGRASI DUP (DESAIN UNIVERSAL UNTUK PEMBELAJARAN)', [['Keterlibatan', gab(p.ket, p.ketLain)], ['Representasi', gab(p.rep, p.repLain)], ['Aksi dan Ekspresi', gab(p.aks, p.aksLain)], ...(p.dupCat.trim() ? [['Catatan', p.dupCat]] : [])]),
+          ...sec('INTEGRASI SOSIAL EMOSIONAL (CASEL)', cs.length ? cs : [['Kompetensi', '-']])])], [450, 8576]),
         new Paragraph({ children: [R('')], spacing: { after: 300 } }));
     });
 
     // 5. Asesmen (UbD tahap 2: bukti)
     const as = (title, items) => [...full(title, ''), ...(items.length ? items : [b1('-')]).map(p => new TableRow({ children: [new TableCell({ width: W(100), children: [p] })] }))];
-    const lain = pref => B.lain.filter(x => x.waktu.startsWith(pref) && (x.detail.trim() || x.manual.trim())).map(x => new Paragraph({ children: [R('   ● ' + (x.jenis === 'Lainnya' ? x.manual || 'Lainnya' : x.jenis) + ': ', { bold: true }), ...runs(x.detail), new TextRun({ text: '', break: 1 }), R('      TP terkait: ' + (x.tp.join(', ') || '-') + '. Cara murid menunjukkan hasil: ' + gab(x.cara, x.caraLain) + '.')], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } }));
+    const lain = pref => B.lain.filter(x => x.waktu.startsWith(pref) && (x.detail.trim() || x.manual.trim())).map(x => new Paragraph({ children: [R('   ● ' + (x.jenis === 'Lainnya' ? x.manual || 'Lainnya' : x.jenis) + ': ', { bold: true }), ...runs(x.detail), new TextRun({ text: '', break: 1 }), R('      TP terkait: ' + (x.tp.join(', ') || '-') + (um() ? '.' : '. Cara murid menunjukkan hasil: ' + gab(x.cara, x.caraLain) + '.'))], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } }));
     const sl = B.sel.filter(s => s.k).map(s => new Paragraph({ children: [R('   ● ' + s.k + ': ', { bold: true }), ...runs(s.ind || '-'), R(' (Cara menilai: ' + s.nilai + ')')], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } }));
-    content.push(H('5. ASESMEN PEMBELAJARAN'), new Paragraph({ children: [R('Asesmen Pendukung', { bold: true })], spacing: { after: 120 } }),
-      T([...as('A. Asesmen Awal Pembelajaran', lain('Awal')), ...as('B. Asesmen Formatif', lain('Selama')), ...as('C. Asesmen Sumatif', lain('Akhir')), ...as('D. Penilaian Sosial Emosional (CASEL)', sl)]));
-    if (tg.nama.trim() || tg.desk.trim()) content.push(new Paragraph({ children: [R('Asesmen Utama (Tugas Kinerja)', { bold: true })], spacing: { before: 300, after: 120 } }),
+    content.push(H('5. ASESMEN PEMBELAJARAN'), ...(um() ? [] : [new Paragraph({ children: [R('Asesmen Pendukung', { bold: true })], spacing: { after: 120 } })]),
+      T([...as('A. Asesmen Awal Pembelajaran', lain('Awal')), ...as('B. Asesmen Formatif', lain('Selama')), ...as('C. Asesmen Sumatif', lain('Akhir')), ...(um() ? [] : as('D. Penilaian Sosial Emosional (CASEL)', sl))]));
+    if (!um() && (tg.nama.trim() || tg.desk.trim())) content.push(new Paragraph({ children: [R('Asesmen Utama (Tugas Kinerja)', { bold: true })], spacing: { before: 300, after: 120 } }),
       new Paragraph({ children: [R(tg.nama || '-', { bold: true }), new TextRun({ text: '', break: 1 }), ...runs(tg.desk || '-'), new TextRun({ text: '', break: 1 }), R('TP yang diukur: ' + (tugasTP().join(', ') || '-') + '.')], spacing: { after: 160 } }));
-    const rb = tg.rubrik.filter(r => r.k.trim());
+    const rb = um() ? [] : tg.rubrik.filter(r => r.k.trim());
     if (rb.length) {
       const cell = (t, b, w) => new TableCell({ width: W(w), shading: b ? { fill: SH } : undefined, children: [std(t, b)] });
       content.push(new Paragraph({ children: [R('Rubrik Penilaian Tugas Kinerja', { bold: true })], spacing: { before: 200, after: 120 } }),
@@ -401,7 +427,7 @@ async function unduh(btn) {
 
     // 6. Peta keterpaduan
     const pc = (t, b, w) => new TableCell({ width: W(w), shading: b ? { fill: SH } : undefined, children: [std(t, b)] });
-    content.push(H('6. PETA KETERPADUAN UbD, DUP, DAN CASEL'), T([new TableRow({ children: [pc('Pertemuan', true, 17), pc('TP', true, 13), pc('DUP', true, 40), pc('CASEL', true, 30)] }),
+    if (!um()) content.push(H('6. PETA KETERPADUAN UbD, DUP, DAN CASEL'), T([new TableRow({ children: [pc('Pertemuan', true, 17), pc('TP', true, 13), pc('DUP', true, 40), pc('CASEL', true, 30)] }),
       ...D.ped.map(p => new TableRow({ children: [pc('' + p.ke, false, 17), pc(p.tp.join(', ') || '-', false, 13), pc([gab(p.ket, p.ketLain), gab(p.rep, p.repLain), gab(p.aks, p.aksLain)].filter(x => x !== '-').join('; ') || '-', false, 40), pc(p.casel.filter(c => c.k).map(c => c.k).join(', ') || '-', false, 30)] }))], [1550, 1200, 3550, 2726]));
 
     // Pengesahan
