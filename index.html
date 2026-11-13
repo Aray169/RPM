@@ -9,12 +9,12 @@
 <body>
 <header>
   <div><b>DeepLearn Builder</b><small>Rancangan Pembelajaran Mendalam · UbD · DUP · CASEL</small></div>
-  <div class="hr"><em id="saved">Tersimpan otomatis</em><button class="ghost" id="reset">Buat baru</button></div>
+  <div class="hr"><select id="modeSw" title="Mode rancangan"><option value="" disabled>Pilih mode</option><option value="umum">Mode Umum</option><option value="terpadu">Mode Terintegrasi</option></select><em id="saved">Tersimpan otomatis</em><button class="ghost" id="reset">Buat baru</button></div>
 </header>
 <div class="wrap">
   <aside>
     <h4>Langkah</h4><ol id="steps"></ol>
-    <h4>Cek keterpaduan</h4><ul id="cek"></ul>
+    <h4 id="cekH">Cek keterpaduan</h4><ul id="cek"></ul>
   </aside>
   <main>
     <div id="view"></div>
