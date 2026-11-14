@@ -59,7 +59,7 @@ const g = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const st = (o, p, v) => { const k = p.split('.'), l = k.pop(); k.reduce((a, x) => a[x], o)[l] = v; };
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-let D, cur = 0, curId = null, curStatus = 'draft', curCreated = 0, dirty = false, syncT = null, USER = null, DAFTAR = [], listFilter = 'semua';
+let D, cur = 0, curId = null, curStatus = 'draft', curCreated = 0, dirty = false, syncT = null, USER = null, DAFTAR = [], listFilter = 'semua', PR = {}, curPersisted = false, baseSnap = null, fotoBaru;
 /* merapikan data RPM, termasuk data versi lama */
 function normalize(d) {
   if (!d || !d.ped || !d.tuj || d.tuj.kunciP === undefined) d = blank();
@@ -75,15 +75,16 @@ let lampN = 0; /* jumlah lampiran tersimpan, ditampilkan pada nama langkah */
 const sn = i => { const b = (um() && NAMA_UMUM[i]) || STEPS[i][0]; return b === 'Lampiran' && lampN ? b + ' (' + lampN + ')' : b; };
 const jam = () => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 const setSaved = t => { const e = $('saved'); if (e) e.textContent = t; };
-function save() { dirty = true; setSaved('Menyimpan...'); clearTimeout(syncT); syncT = setTimeout(sync, 900); }
+function save() { dirty = true; setSaved('Menyimpan...'); const t = $('edTitle'); if (t) t.textContent = judulRpm(D); clearTimeout(syncT); syncT = setTimeout(sync, 900); }
 const judulRpm = d => [d.id.mapel, d.id.topik].map(x => String(x || '').trim()).filter(Boolean).join(' - ') || 'RPM tanpa judul';
 function lengkapOf(d) { const p = D; D = d; try { const c = checks(); return Math.round(100 * c.filter(x => x[1]).length / (c.length || 1)); } finally { D = p; } }
 const metaOf = (d, status, created) => ({ judul: judulRpm(d), mapel: String(d.id.mapel || ''), kelas: String(d.id.kelas || ''), mode: d.mode, status, lengkap: lengkapOf(d), createdAt: created, updatedAt: Date.now() });
 async function sync() {
   clearTimeout(syncT);
   if (typeof Repo === 'undefined' || !curId || !D.mode) return;
+  if (!curPersisted && JSON.stringify(D) === baseSnap) { dirty = false; setSaved(''); return; }
   dirty = false; setSaved('Menyimpan...');
-  try { const r = await Repo.put(curId, metaOf(D, curStatus, curCreated), JSON.stringify(D)); setSaved(r && r.pending ? 'Tersimpan di perangkat, menunggu koneksi' : 'Tersimpan ' + jam()); }
+  try { const r = await Repo.put(curId, metaOf(D, curStatus, curCreated), JSON.stringify(D)); curPersisted = true; setSaved(r && r.pending ? 'Tersimpan di perangkat, menunggu koneksi' : 'Tersimpan ' + jam()); }
   catch (e) { dirty = true; console.error(e); setSaved('Gagal menyimpan'); }
 }
 
@@ -356,7 +357,7 @@ $('view').onchange = e => {
 $('view').onclick = async e => {
   const b = e.target.closest('button'); if (!b) return;
   const a = b.dataset.act;
-  if (a === 'mode') { D.mode = b.dataset.m; save(); return render(true); }
+  if (a === 'mode') { D.mode = b.dataset.m; if (!curPersisted) baseSnap = JSON.stringify(D); save(); return render(true); }
   if (a === 'dl') return unduh(b);
   if (a === 'rmcover') { D.cover = null; save(); return render(); }
   if (a === 'addlamp') return addLamp();
@@ -364,18 +365,23 @@ $('view').onclick = async e => {
   if (b.dataset.add) { g(D, b.dataset.add).push(mk(b.dataset.add)); save(); render(); }
   if (b.dataset.del) { const [p, i] = b.dataset.del.split(':'); del(p, +i); save(); render(); }
 };
-$('modeSw').onchange = e => { D.mode = e.target.value; save(); render(true); };
+$('modeSw').onchange = e => { const kosong = !curPersisted && JSON.stringify(D) === baseSnap; D.mode = e.target.value; if (kosong) baseSnap = JSON.stringify(D); save(); render(true); };
 $('steps').onclick = e => { const li = e.target.closest('li'); if (li) { cur = +li.dataset.s; render(true); } };
 $('prev').onclick = () => { cur--; render(true); };
 $('next').onclick = () => { cur++; render(true); };
 /* ---------- layar: masuk, daftar RPM, editor ---------- */
+function closeMenu() { const m = $('acctMenu'); if (m) m.hidden = true; }
 function setView(v) {
   document.body.dataset.v = v;
   $('login').hidden = !(v === 'login' || v === 'boot');
   $('listv').hidden = v !== 'list';
+  $('profilv').hidden = v !== 'profil';
+  $('edbar').hidden = v !== 'editor';
   $('editor').hidden = v !== 'editor';
   if (v === 'boot') { $('bootMsg').hidden = false; $('loginBox').hidden = true; }
-  window.scrollTo(0, 0);
+  const aktif = v === 'list' ? 'list' : v === 'profil' ? 'profil' : '';
+  document.querySelectorAll('[data-go]').forEach(x => x.classList.toggle('on', x.dataset.go === aktif));
+  closeMenu(); window.scrollTo(0, 0);
 }
 let toastT;
 function toast(m) { const t = $('toast'); if (!t || !t.classList) return; t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800); }
@@ -393,13 +399,13 @@ function pesanLogin(e) {
 
 async function onAuth(u) {
   if (!u) {
-    USER = null; D = normalize(null); curId = null; DAFTAR = [];
+    USER = null; PR = {}; D = normalize(null); curId = null; DAFTAR = [];
     $('bootMsg').hidden = true; $('loginBox').hidden = false; $('loginMsg').textContent = '';
     return setView('login');
   }
   USER = u;
-  $('whoName').textContent = u.name;
-  const im = $('whoImg'); if (u.photo) { im.src = u.photo; im.hidden = false; } else im.hidden = true;
+  try { PR = (await Repo.getProfile()) || {}; } catch (e) { PR = {}; }
+  applyHeader();
   $('logout').hidden = !!u.local;
   const ln = $('localNote'); ln.hidden = !u.local;
   ln.textContent = Repo.fallback || 'Mode lokal: RPM tersimpan di perangkat ini saja. Untuk masuk dengan Google dan menyimpan ke akun, buka versi web aplikasi.';
@@ -425,7 +431,7 @@ async function migrateLegacy() {
 }
 
 async function showList(msg) {
-  curId = null; setView('list');
+  curId = null; setView('list'); $('profNote').hidden = !!(PR.nama || PR.sekolah || PR.mapel);
   $('tabs').innerHTML = ''; $('listBody').innerHTML = '<p class="hint">Memuat daftar...</p>';
   try { DAFTAR = await Repo.list(); }
   catch (e) {
@@ -447,13 +453,24 @@ function drawList() {
   $('listBody').innerHTML = items.length ? items.map(rcard).join('') : `<p class="hint">${DAFTAR.length ? 'Tidak ada RPM pada tab ini.' : 'Belum ada RPM. Tekan "+ RPM baru" untuk mulai.'}</p>`;
 }
 
-function showEditor() { setView('editor'); $('saveDraft').textContent = labelSimpan(); setSaved(''); render(true); listLamp(); }
-function newRpm() { D = blank(); curId = Repo.newId(); curStatus = 'draft'; curCreated = Date.now(); cur = 0; dirty = false; showEditor(); }
+function showEditor() { setView('editor'); const et = $('edTitle'); if (et) et.textContent = judulRpm(D); $('saveDraft').textContent = labelSimpan(); setSaved(''); render(true); listLamp(); }
+/* RPM baru langsung berisi data dari profil guru */
+function prefillProfil(d) {
+  const p = PR || {};
+  if (p.sekolah) d.id.sekolah = p.sekolah;
+  if (p.mapel) d.id.mapel = p.mapel;
+  if (p.nama) { d.id.penyusun = [p.nama]; d.ttd.guru = p.nama; }
+  if (p.nip) d.ttd.nipg = p.nip;
+  if (p.kota) d.ttd.kota = p.kota;
+  if (p.kepsek) d.ttd.kepsek = p.kepsek;
+  if (p.nipk) d.ttd.nipk = p.nipk;
+}
+function newRpm() { D = blank(); prefillProfil(D); curId = Repo.newId(); curStatus = 'draft'; curCreated = Date.now(); curPersisted = false; baseSnap = null; cur = 0; dirty = false; showEditor(); }
 async function openRpm(id) {
   try {
     const r = await Repo.get(id); if (!r) return toast('RPM tidak ditemukan.');
     D = normalize(JSON.parse(r.data)); curId = id; curStatus = r.meta.status === 'selesai' ? 'selesai' : 'draft';
-    curCreated = r.meta.createdAt || Date.now(); cur = 0; dirty = false; showEditor();
+    curCreated = r.meta.createdAt || Date.now(); curPersisted = true; baseSnap = null; cur = 0; dirty = false; showEditor();
   } catch (e) { console.error(e); toast('Gagal membuka RPM.'); }
 }
 async function dupRpm(id) {
@@ -474,7 +491,7 @@ async function delRpm(id) {
 }
 async function dlRpm(id, btn) {
   const t = btn.textContent; btn.disabled = true; btn.textContent = 'Memuat...';
-  try { const r = await Repo.get(id); if (!r) throw new Error('kosong'); D = normalize(JSON.parse(r.data)); curId = id; curStatus = 'draft'; curCreated = r.meta.createdAt || Date.now(); if (r.meta.status === 'selesai') curStatus = 'selesai'; }
+  try { const r = await Repo.get(id); if (!r) throw new Error('kosong'); D = normalize(JSON.parse(r.data)); curId = id; curStatus = 'draft'; curCreated = r.meta.createdAt || Date.now(); curPersisted = true; if (r.meta.status === 'selesai') curStatus = 'selesai'; }
   catch (e) { console.error(e); btn.disabled = false; btn.textContent = t; return toast('Gagal memuat RPM.'); }
   await unduh(btn);
   btn.textContent = t; await showList();
@@ -488,16 +505,68 @@ async function afterDownload() {
     toast('RPM diunduh dan ditandai selesai.');
   } catch (e) { console.error(e); }
 }
-async function keDaftar() { await sync(); if (dirty) return toast('Belum tersimpan. Periksa koneksi lalu coba lagi.'); showList(); }
+/* pindah layar; pekerjaan di editor disimpan otomatis dulu */
+async function go(w) {
+  if (document.body.dataset.v === 'editor') { await sync(); if (dirty) return toast('Belum tersimpan. Periksa koneksi lalu coba lagi.'); }
+  if (w === 'list') return showList();
+  if (w === 'profil') return showProfil();
+  if (w === 'new') return newRpm();
+}
+const keDaftar = () => go('list');
+
+/* ---------- profil guru ---------- */
+const PF = ['nama', 'nip', 'mapel', 'sekolah', 'kota', 'kepsek', 'nipk'];
+function drawAvatar(el, foto, nama) { el.innerHTML = foto ? `<img alt="" src="${esc(foto)}">` : esc(((nama || '?').trim().charAt(0) || '?').toUpperCase()); }
+function applyHeader() {
+  const nm = PR.nama || (USER && USER.name) || '';
+  $('whoName').textContent = nm;
+  $('whoMail').textContent = USER && USER.local ? 'Data tersimpan di perangkat ini' : ((USER && USER.email) || nm);
+  drawAvatar($('avTop'), PR.foto || (USER && USER.photo) || '', nm);
+}
+function showProfil() {
+  setView('profil'); fotoBaru = undefined;
+  PF.forEach(k => { $('pf-' + k).value = PR[k] || ''; });
+  drawAvatar($('avBig'), PR.foto || (USER && USER.photo) || '', PR.nama || (USER && USER.name) || '');
+  $('profMsg').textContent = '';
+}
+async function saveProfil() {
+  const p = {}; PF.forEach(k => { p[k] = $('pf-' + k).value.trim(); });
+  p.foto = fotoBaru !== undefined ? fotoBaru : (PR.foto || '');
+  const b = $('profSave'); b.disabled = true;
+  try { await Repo.setProfile(p); PR = p; fotoBaru = undefined; applyHeader(); $('profMsg').textContent = '✔ Profil tersimpan.'; toast('Profil tersimpan.'); }
+  catch (e) { console.error(e); $('profMsg').textContent = 'Gagal menyimpan profil. Coba lagi.'; }
+  b.disabled = false;
+}
+function bacaFoto(f) {
+  const r = new FileReader();
+  r.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = 160;
+      const m = Math.min(im.width, im.height);
+      c.getContext('2d').drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, 160, 160);
+      fotoBaru = c.toDataURL('image/jpeg', 0.85); drawAvatar($('avBig'), fotoBaru, '');
+    };
+    im.src = r.result;
+  };
+  r.readAsDataURL(f);
+}
 
 $('gLogin').onclick = async () => { $('loginMsg').textContent = ''; try { await Repo.signIn(); } catch (e) { console.error(e); $('loginMsg').textContent = pesanLogin(e); } };
-$('logout').onclick = async () => { try { await Repo.signOut(); } catch (e) { console.error(e); toast('Gagal keluar.'); } };
-$('newRpm').onclick = newRpm;
-$('toList').onclick = keDaftar;
+$('logout').onclick = async () => { await sync(); try { await Repo.signOut(); } catch (e) { console.error(e); toast('Gagal keluar.'); } };
+$('acctBtn').onclick = e => { e.stopPropagation(); const m = $('acctMenu'); m.hidden = !m.hidden; };
+document.addEventListener('click', e => {
+  if (!e.target.closest('.acct')) closeMenu();
+  const g = e.target.closest('[data-go]'); if (g) { closeMenu(); go(g.dataset.go); }
+});
+$('fotoIn').onchange = e => { const f = e.target.files[0]; if (f) bacaFoto(f); e.target.value = ''; };
+$('fotoDel').onclick = () => { fotoBaru = ''; drawAvatar($('avBig'), (USER && USER.photo) || '', $('pf-nama').value || (USER && USER.name) || ''); };
+$('profSave').onclick = saveProfil;
 $('saveDraft').onclick = async () => {
-  if (!D.mode) return keDaftar();
+  if (!D.mode) return showList('RPM masih kosong, tidak ada yang disimpan.');
   await sync();
   if (dirty) return toast('Gagal menyimpan. Periksa koneksi lalu coba lagi.');
+  if (!curPersisted) return showList('RPM masih kosong, tidak ada yang disimpan.');
   await showList(curStatus === 'selesai' ? 'Perubahan tersimpan.' : 'Draft tersimpan.');
 };
 $('listv').onclick = e => {
