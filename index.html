@@ -6,12 +6,38 @@
 <title>DeepLearn Builder - Rancangan Pembelajaran Mendalam</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-v="boot">
 <header>
   <div><b>DeepLearn Builder</b><small>Rancangan Pembelajaran Mendalam · UbD · DUP · CASEL</small></div>
-  <div class="hr"><select id="modeSw" title="Mode rancangan" aria-label="Mode rancangan"><option value="" disabled>Pilih mode</option><option value="umum">Umum</option><option value="terpadu">Terintegrasi</option></select><em id="saved">Tersimpan otomatis</em><button class="ghost" id="reset">Buat baru</button></div>
+  <div class="hr">
+    <select id="modeSw" class="ed-only" title="Mode rancangan" aria-label="Mode rancangan"><option value="" disabled>Pilih mode</option><option value="umum">Umum</option><option value="terpadu">Terintegrasi</option></select>
+    <em id="saved" class="ed-only"></em>
+    <button class="ghost ed-only" id="toList">Daftar RPM</button>
+    <button class="ed-only" id="saveDraft">Simpan draft</button>
+    <span class="who ls-only"><img id="whoImg" alt="" hidden><span id="whoName"></span><button class="ghost" id="logout">Keluar</button></span>
+  </div>
 </header>
-<div class="wrap">
+
+<section id="login" class="screen" hidden>
+  <div class="card logincard">
+    <h2>Masuk</h2>
+    <p class="sub" id="bootMsg">Memuat...</p>
+    <div id="loginBox" hidden>
+      <p class="sub">Masuk dengan akun Google agar RPM tersimpan di akun Anda dan bisa dibuka dari perangkat mana pun.</p>
+      <button class="big" id="gLogin">Masuk dengan Google</button>
+      <p class="warn wmsg" id="loginMsg"></p>
+    </div>
+  </div>
+</section>
+
+<section id="listv" class="screen" hidden>
+  <div class="listhead"><div><h2>Daftar RPM</h2><p class="sub">Semua RPM Anda: lanjutkan draft, edit ulang, atau unduh lagi.</p></div><button class="big" id="newRpm">+ RPM baru</button></div>
+  <p class="notice" id="localNote" hidden></p>
+  <div class="tabs" id="tabs"></div>
+  <div id="listBody"></div>
+</section>
+
+<div class="wrap" id="editor" hidden>
   <aside>
     <h4>Langkah</h4><ol id="steps"></ol>
     <h4 id="cekH">Cek keterpaduan</h4><ul id="cek"></ul>
@@ -21,9 +47,12 @@
     <div class="nav"><button class="ghost" id="prev">← Kembali</button><span id="pos"></span><button id="next">Lanjut →</button></div>
   </main>
 </div>
+<div id="toast" role="status"></div>
 <script src="docx.js"></script>
 <script src="pizzip.min.js"></script>
 <script src="docx-merger.min.js"></script>
+<script src="firebase-config.js"></script>
+<script src="repo.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
