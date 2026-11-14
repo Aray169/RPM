@@ -59,20 +59,32 @@ const g = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const st = (o, p, v) => { const k = p.split('.'), l = k.pop(); k.reduce((a, x) => a[x], o)[l] = v; };
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-let D, cur = 0;
-try { D = JSON.parse(localStorage.getItem(KEY)); } catch (e) { D = null; }
-if (!D || !D.ped || !D.tuj || D.tuj.kunciP === undefined) D = blank();
-if (D.mode === undefined) D.mode = 'terpadu'; /* data lama tetap memakai mode lengkap */
-/* data lama: satu isian "lainnya" DUP dipindah menjadi daftar yang bisa ditambah */
-D.bukti.lain.forEach(x => { if (!Array.isArray(x.caraL)) x.caraL = [String(x.caraLain || '')]; });
-D.ped.forEach(q => [['ket', 'ketLain'], ['rep', 'repLain'], ['aks', 'aksLain']].forEach(([k, o]) => { if (!Array.isArray(q[k + 'L'])) q[k + 'L'] = [String(q[o] || '')]; }));
+let D, cur = 0, curId = null, curStatus = 'draft', curCreated = 0, dirty = false, syncT = null, USER = null, DAFTAR = [], listFilter = 'semua';
+/* merapikan data RPM, termasuk data versi lama */
+function normalize(d) {
+  if (!d || !d.ped || !d.tuj || d.tuj.kunciP === undefined) d = blank();
+  if (d.mode === undefined) d.mode = 'terpadu'; /* data lama tetap memakai mode lengkap */
+  d.bukti.lain.forEach(x => { if (!Array.isArray(x.caraL)) x.caraL = [String(x.caraLain || '')]; });
+  d.ped.forEach(q => [['ket', 'ketLain'], ['rep', 'repLain'], ['aks', 'aksLain']].forEach(([k, o]) => { if (!Array.isArray(q[k + 'L'])) q[k + 'L'] = [String(q[o] || '')]; }));
+  return d;
+}
+D = normalize(null);
 const um = () => D.mode === 'umum';
 const NAMA_UMUM = [null, null, 'Tujuan Pembelajaran', 'Asesmen', 'Kegiatan Pembelajaran'];
 let lampN = 0; /* jumlah lampiran tersimpan, ditampilkan pada nama langkah */
 const sn = i => { const b = (um() && NAMA_UMUM[i]) || STEPS[i][0]; return b === 'Lampiran' && lampN ? b + ' (' + lampN + ')' : b; };
-function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { $('saved').textContent = 'Penyimpanan penuh (gambar terlalu besar?)'; return; }
-  $('saved').textContent = 'Tersimpan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+const jam = () => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+const setSaved = t => { const e = $('saved'); if (e) e.textContent = t; };
+function save() { dirty = true; setSaved('Menyimpan...'); clearTimeout(syncT); syncT = setTimeout(sync, 900); }
+const judulRpm = d => [d.id.mapel, d.id.topik].map(x => String(x || '').trim()).filter(Boolean).join(' - ') || 'RPM tanpa judul';
+function lengkapOf(d) { const p = D; D = d; try { const c = checks(); return Math.round(100 * c.filter(x => x[1]).length / (c.length || 1)); } finally { D = p; } }
+const metaOf = (d, status, created) => ({ judul: judulRpm(d), mapel: String(d.id.mapel || ''), kelas: String(d.id.kelas || ''), mode: d.mode, status, lengkap: lengkapOf(d), createdAt: created, updatedAt: Date.now() });
+async function sync() {
+  clearTimeout(syncT);
+  if (typeof Repo === 'undefined' || !curId || !D.mode) return;
+  dirty = false; setSaved('Menyimpan...');
+  try { const r = await Repo.put(curId, metaOf(D, curStatus, curCreated), JSON.stringify(D)); setSaved(r && r.pending ? 'Tersimpan di perangkat, menunggu koneksi' : 'Tersimpan ' + jam()); }
+  catch (e) { dirty = true; console.error(e); setSaved('Gagal menyimpan'); }
 }
 
 /* ---------- komponen formulir ---------- */
@@ -161,7 +173,7 @@ const STEPS = [
   ['Lampiran', () => `<div class="card">${head('Lampiran (.docx)', 'Berkas yang diunggah di sini digabungkan di akhir dokumen saat diunduh.')}
     <label class="f"><span>Judul lampiran (opsional, isi sebelum memilih berkas)</span><input id="judulLamp" placeholder="Contoh: LKPD 1"></label>
     <label class="add filebtn">+ Pilih berkas .docx<input type="file" id="fileLamp" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden></label>
-    <p class="hint" id="lampMsg">Berkas langsung tersimpan begitu dipilih dan tetap ada saat Anda berpindah langkah.</p><div id="lamp" style="margin-top:14px"></div></div>`],
+    <p class="hint" id="lampMsg">Berkas langsung tersimpan begitu dipilih dan tetap ada saat Anda berpindah langkah.</p>${typeof Repo !== 'undefined' && Repo.kind === 'cloud' ? '<p class="hint">Catatan: lampiran disimpan di perangkat ini saja. Jika RPM dibuka dari perangkat lain, unggah ulang lampirannya.</p>' : ''}<div id="lamp" style="margin-top:14px"></div></div>`],
   ['Ringkasan dan Unduh', () => `<div class="card">${head('Ringkasan dan Unduh', um() ? 'Periksa kelengkapan sebelum mengunduh.' : 'Periksa keterpaduan UbD, DUP, dan CASEL sebelum mengunduh.')}
     <ul style="list-style:none;padding:0">${checks().map(([k, ok, m]) => `<li style="padding:6px 0"><span class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'}</span> <b>${k}</b> · ${esc(m)}</li>`).join('')}</ul>
     <button class="big" data-act="dl">Unduh RPM (.docx)</button></div>`]
@@ -205,10 +217,17 @@ const dbReady = new Promise(res => {
   rq.onerror = rq.onblocked = () => { dbErr = true; res(); };
 });
 const dbWait = () => Promise.race([dbReady, new Promise(r => setTimeout(r, 4000))]);
-const lampAll = async () => {
+const lampRaw = async () => {
   await dbWait(); if (!db) return [];
   return new Promise(r => { try { const q = db.transaction('lampiran', 'readonly').objectStore('lampiran').getAll(); q.onsuccess = () => r(q.result); q.onerror = () => r([]); } catch (e) { r([]); } });
 };
+/* lampiran disimpan per RPM (kolom rid) */
+const lampAll = async rid => (await lampRaw()).filter(x => x.rid === (rid === undefined ? curId : rid));
+const lampTx = () => db.transaction('lampiran', 'readwrite').objectStore('lampiran');
+const lampDone = q => new Promise(r => { q.onsuccess = q.onerror = () => r(); });
+async function lampDelFor(rid) { await dbWait(); if (!db) return; for (const x of await lampAll(rid)) await lampDone(lampTx().delete(x.id)); }
+async function lampCopy(from, to) { await dbWait(); if (!db) return; for (const x of await lampAll(from)) { const { id, ...sisa } = x; await lampDone(lampTx().add({ ...sisa, rid: to })); } }
+async function lampAdopt(rid) { await dbWait(); if (!db) return; for (const x of (await lampRaw()).filter(y => !y.rid)) await lampDone(lampTx().put({ ...x, rid })); }
 async function listLamp() {
   const a = await lampAll(); lampN = a.length; drawSteps();
   const el = $('lamp'); if (!el) return;
@@ -225,7 +244,7 @@ async function addLamp() {
     if (!/\.docx$/i.test(f.name)) { alert(f.name + ' bukan .docx dan dilewati.'); continue; }
     try {
       const buf = await f.arrayBuffer();
-      await new Promise((res, rej) => { const q = db.transaction('lampiran', 'readwrite').objectStore('lampiran').add({ judul: j || f.name, nama: f.name, konten: buf }); q.onsuccess = () => res(); q.onerror = () => rej(q.error); });
+      await new Promise((res, rej) => { const q = db.transaction('lampiran', 'readwrite').objectStore('lampiran').add({ judul: j || f.name, nama: f.name, konten: buf, rid: curId }); q.onsuccess = () => res(); q.onerror = () => rej(q.error); });
       n++;
     } catch (e) { alert(f.name + ' gagal disimpan (' + ((e && e.name) || 'kesalahan') + ').'); }
   }
@@ -349,16 +368,157 @@ $('modeSw').onchange = e => { D.mode = e.target.value; save(); render(true); };
 $('steps').onclick = e => { const li = e.target.closest('li'); if (li) { cur = +li.dataset.s; render(true); } };
 $('prev').onclick = () => { cur--; render(true); };
 $('next').onclick = () => { cur++; render(true); };
-$('reset').onclick = () => {
-  if (!confirm('Mulai rancangan baru? Data yang sekarang dan semua lampiran akan dihapus.')) return;
-  D = blank(); cur = 0; save();
-  lampN = 0; if (db) db.transaction('lampiran', 'readwrite').objectStore('lampiran').clear();
-  render(true);
+/* ---------- layar: masuk, daftar RPM, editor ---------- */
+function setView(v) {
+  document.body.dataset.v = v;
+  $('login').hidden = !(v === 'login' || v === 'boot');
+  $('listv').hidden = v !== 'list';
+  $('editor').hidden = v !== 'editor';
+  if (v === 'boot') { $('bootMsg').hidden = false; $('loginBox').hidden = true; }
+  window.scrollTo(0, 0);
+}
+let toastT;
+function toast(m) { const t = $('toast'); if (!t || !t.classList) return; t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800); }
+const tglJam = ms => ms ? new Date(ms).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+const labelSimpan = () => curStatus === 'selesai' ? 'Simpan perubahan' : 'Simpan draft';
+
+function pesanLogin(e) {
+  const c = (e && e.code) || '';
+  if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return '';
+  if (c === 'auth/unauthorized-domain') return 'Domain ini belum didaftarkan di Firebase. Tambahkan di Authentication > Settings > Authorized domains.';
+  if (c === 'auth/operation-not-allowed') return 'Login Google belum diaktifkan di Firebase (Authentication > Sign-in method).';
+  if (c === 'auth/network-request-failed') return 'Tidak ada koneksi internet.';
+  return 'Gagal masuk' + (c ? ' (' + c + ')' : '') + '.';
+}
+
+async function onAuth(u) {
+  if (!u) {
+    USER = null; D = normalize(null); curId = null; DAFTAR = [];
+    $('bootMsg').hidden = true; $('loginBox').hidden = false; $('loginMsg').textContent = '';
+    return setView('login');
+  }
+  USER = u;
+  $('whoName').textContent = u.name;
+  const im = $('whoImg'); if (u.photo) { im.src = u.photo; im.hidden = false; } else im.hidden = true;
+  $('logout').hidden = !!u.local;
+  const ln = $('localNote'); ln.hidden = !u.local;
+  ln.textContent = Repo.fallback || 'Mode lokal: RPM tersimpan di perangkat ini saja. Untuk masuk dengan Google dan menyimpan ke akun, buka versi web aplikasi.';
+  try { await migrateLegacy(); } catch (e) { console.error(e); }
+  showList();
+}
+
+/* RPM tunggal dari versi lama (disimpan di perangkat) dipindahkan menjadi draft pertama */
+async function migrateLegacy() {
+  const flag = 'rpm_v4_migrated_' + USER.uid;
+  if (localStorage.getItem(flag)) return;
+  let old = null; try { old = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  if (old && old.ped && old.tuj && old.tuj.kunciP !== undefined) {
+    const d = normalize(old), isi = d.id.mapel || d.id.topik || d.id.sekolah || d.tuj.cp.join('') || d.tuj.tp.join('');
+    if (d.mode && isi) {
+      const id = Repo.newId();
+      await Repo.put(id, metaOf(d, 'draft', Date.now()), JSON.stringify(d));
+      await lampAdopt(id);
+      toast('RPM dari perangkat ini dipindahkan ke daftar sebagai draft.');
+    }
+  }
+  localStorage.setItem(flag, '1');
+}
+
+async function showList(msg) {
+  curId = null; setView('list');
+  $('tabs').innerHTML = ''; $('listBody').innerHTML = '<p class="hint">Memuat daftar...</p>';
+  try { DAFTAR = await Repo.list(); }
+  catch (e) {
+    console.error(e); DAFTAR = [];
+    $('listBody').innerHTML = `<p class="warn">Gagal memuat daftar (${esc((e && (e.code || e.message)) || 'kesalahan')}). ${e && e.code === 'permission-denied' ? 'Periksa aturan Firestore.' : 'Periksa koneksi internet.'}</p>`;
+    return;
+  }
+  drawList(); if (msg) toast(msg);
+}
+const rcard = x => `<div class="rcard"><div class="rtop"><div class="rtitle">${esc(x.judul || 'RPM tanpa judul')}</div><span class="badge ${x.status === 'selesai' ? 'b-ok' : 'b-draft'}">${x.status === 'selesai' ? 'Selesai' : 'Draft'}</span></div>
+  <div class="rmeta">${esc([x.mapel, x.kelas ? 'Kelas ' + x.kelas : '', x.mode === 'umum' ? 'Mode Umum' : 'Mode Terintegrasi'].filter(Boolean).join(' · '))}</div>
+  <div class="rmeta">Diubah ${tglJam(x.updatedAt)} · Kelengkapan ${x.lengkap == null ? '-' : x.lengkap + '%'}</div>
+  <div class="ract"><button data-act="open" data-id="${esc(x.id)}">${x.status === 'selesai' ? 'Edit' : 'Lanjutkan'}</button><button class="ghost" data-act="dlrpm" data-id="${esc(x.id)}">Unduh</button><button class="ghost" data-act="duprpm" data-id="${esc(x.id)}">Salin</button><button class="x" data-act="delrpm" data-id="${esc(x.id)}">Hapus</button></div></div>`;
+function drawList() {
+  const sel = x => x.status === 'selesai';
+  const tabs = [['semua', 'Semua', DAFTAR.length], ['draft', 'Draft', DAFTAR.filter(x => !sel(x)).length], ['selesai', 'Selesai', DAFTAR.filter(sel).length]];
+  $('tabs').innerHTML = tabs.map(([k, l, c]) => `<button class="tab ${listFilter === k ? 'on' : ''}" data-tab="${k}">${l} (${c})</button>`).join('');
+  const items = DAFTAR.filter(x => listFilter === 'semua' || (listFilter === 'selesai') === sel(x));
+  $('listBody').innerHTML = items.length ? items.map(rcard).join('') : `<p class="hint">${DAFTAR.length ? 'Tidak ada RPM pada tab ini.' : 'Belum ada RPM. Tekan "+ RPM baru" untuk mulai.'}</p>`;
+}
+
+function showEditor() { setView('editor'); $('saveDraft').textContent = labelSimpan(); setSaved(''); render(true); listLamp(); }
+function newRpm() { D = blank(); curId = Repo.newId(); curStatus = 'draft'; curCreated = Date.now(); cur = 0; dirty = false; showEditor(); }
+async function openRpm(id) {
+  try {
+    const r = await Repo.get(id); if (!r) return toast('RPM tidak ditemukan.');
+    D = normalize(JSON.parse(r.data)); curId = id; curStatus = r.meta.status === 'selesai' ? 'selesai' : 'draft';
+    curCreated = r.meta.createdAt || Date.now(); cur = 0; dirty = false; showEditor();
+  } catch (e) { console.error(e); toast('Gagal membuka RPM.'); }
+}
+async function dupRpm(id) {
+  try {
+    const r = await Repo.get(id); if (!r) return toast('RPM tidak ditemukan.');
+    const d = normalize(JSON.parse(r.data)); d.id.topik = (d.id.topik ? d.id.topik + ' ' : '') + '(salinan)';
+    const nid = Repo.newId();
+    await Repo.put(nid, metaOf(d, 'draft', Date.now()), JSON.stringify(d));
+    await lampCopy(id, nid);
+    await showList('Disalin sebagai draft baru.');
+  } catch (e) { console.error(e); toast('Gagal menyalin RPM.'); }
+}
+async function delRpm(id) {
+  const x = DAFTAR.find(i => i.id === id);
+  if (!confirm('Hapus "' + ((x && x.judul) || 'RPM ini') + '" beserta lampirannya? Tindakan ini tidak bisa dibatalkan.')) return;
+  try { await Repo.del(id); await lampDelFor(id); DAFTAR = DAFTAR.filter(i => i.id !== id); drawList(); toast('RPM dihapus.'); }
+  catch (e) { console.error(e); toast('Gagal menghapus RPM.'); }
+}
+async function dlRpm(id, btn) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Memuat...';
+  try { const r = await Repo.get(id); if (!r) throw new Error('kosong'); D = normalize(JSON.parse(r.data)); curId = id; curStatus = 'draft'; curCreated = r.meta.createdAt || Date.now(); if (r.meta.status === 'selesai') curStatus = 'selesai'; }
+  catch (e) { console.error(e); btn.disabled = false; btn.textContent = t; return toast('Gagal memuat RPM.'); }
+  await unduh(btn);
+  btn.textContent = t; await showList();
+}
+/* setelah unduh, RPM otomatis berstatus selesai */
+async function afterDownload() {
+  try {
+    if (typeof Repo === 'undefined' || !curId) return;
+    curStatus = 'selesai'; await sync();
+    const sb = $('saveDraft'); if (sb) sb.textContent = labelSimpan();
+    toast('RPM diunduh dan ditandai selesai.');
+  } catch (e) { console.error(e); }
+}
+async function keDaftar() { await sync(); if (dirty) return toast('Belum tersimpan. Periksa koneksi lalu coba lagi.'); showList(); }
+
+$('gLogin').onclick = async () => { $('loginMsg').textContent = ''; try { await Repo.signIn(); } catch (e) { console.error(e); $('loginMsg').textContent = pesanLogin(e); } };
+$('logout').onclick = async () => { try { await Repo.signOut(); } catch (e) { console.error(e); toast('Gagal keluar.'); } };
+$('newRpm').onclick = newRpm;
+$('toList').onclick = keDaftar;
+$('saveDraft').onclick = async () => {
+  if (!D.mode) return keDaftar();
+  await sync();
+  if (dirty) return toast('Gagal menyimpan. Periksa koneksi lalu coba lagi.');
+  await showList(curStatus === 'selesai' ? 'Perubahan tersimpan.' : 'Draft tersimpan.');
 };
+$('listv').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.tab) { listFilter = b.dataset.tab; return drawList(); }
+  const id = b.dataset.id, a = b.dataset.act;
+  if (a === 'open') return openRpm(id);
+  if (a === 'dlrpm') return dlRpm(id, b);
+  if (a === 'duprpm') return dupRpm(id);
+  if (a === 'delrpm') return delRpm(id);
+};
+window.addEventListener('pagehide', () => { if (dirty) sync(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) sync(); });
+async function boot() {
+  setView('boot');
+  try { await Repo.init(onAuth); } catch (e) { console.error(e); $('bootMsg').textContent = 'Gagal memulai aplikasi: ' + ((e && e.message) || e); }
+}
 
 /* ---------- ekspor .docx (format mengikuti aplikasi asli) ---------- */
 async function unduh(btn) {
-  btn.disabled = true; btn.textContent = 'Menyusun dokumen...';
+  const t0 = btn.textContent; btn.disabled = true; btn.textContent = 'Menyusun dokumen...';
   try {
     const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, ImageRun, AlignmentType, PageBreak, TableBorders, TableLayoutType, BorderStyle } = docx;
     const FN = 'Times New Roman', SH = 'F2F2F2';
@@ -476,8 +636,9 @@ async function unduh(btn) {
     const blob = await gabung(await Packer.toBlob(doc));
     const nama = ('RPM_' + v(I.mapel, 'Mapel') + '_' + v(I.topik, 'Topik') + '_Kelas' + I.kelas + '_' + v(I.tahun, 'Tahun')).replace(/[/\\?%*:|"<>]/g, '-');
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nama + '.docx'; a.click();
+    await afterDownload();
   } catch (err) { console.error(err); alert('Gagal menyusun dokumen: ' + err.message); }
-  btn.disabled = false; btn.textContent = 'Unduh RPM (.docx)';
+  btn.disabled = false; btn.textContent = t0;
 }
 
-render(true);
+if (typeof Repo !== 'undefined') boot();
