@@ -3,10 +3,11 @@
      dan halaman dibuka lewat http(s), misalnya di GitHub Pages
    - lokal: localStorage di perangkat, dipakai di aplikasi desktop, saat dibuka dari berkas, atau saat
      konfigurasi belum diisi
-   Data awan: users/{uid}/rpm/{id} berisi ringkasan untuk daftar, dan users/{uid}/rpmData/{id} berisi isi RPM. */
+   Data awan: users/{uid}/rpm/{id} berisi ringkasan untuk daftar, users/{uid}/rpmData/{id} berisi isi RPM,
+   dan users/{uid}/profile/main berisi profil guru. */
 const Repo = (() => {
   const FB = 'https://www.gstatic.com/firebasejs/10.14.1/';
-  const LS_IDX = 'rpm_idx_v1', LS_DATA = 'rpm_data_';
+  const LS_IDX = 'rpm_idx_v1', LS_DATA = 'rpm_data_', LS_PROF = 'rpm_profile_v1';
   const newId = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   let impl = null;
 
@@ -24,6 +25,8 @@ const Repo = (() => {
         return {};
       },
       async del(id) { const x = idx(); delete x[id]; localStorage.setItem(LS_IDX, JSON.stringify(x)); localStorage.removeItem(LS_DATA + id); },
+      async getProfile() { try { return JSON.parse(localStorage.getItem(LS_PROF)) || null; } catch (e) { return null; } },
+      async setProfile(p) { localStorage.setItem(LS_PROF, JSON.stringify(p)); return {}; },
     };
   };
 
@@ -70,6 +73,8 @@ const Repo = (() => {
         const selesai = b.commit(); selesai.catch(() => {});
         await tunggu(selesai, 4000);
       },
+      async getProfile() { const d = await S.getDoc(ref('profile', 'main')); return d.exists() ? d.data() : null; },
+      async setProfile(p) { const w = S.setDoc(ref('profile', 'main'), p); w.catch(() => {}); return tunggu(w.then(() => ({})), 4000); },
     };
   };
 
@@ -87,6 +92,7 @@ const Repo = (() => {
     },
     signIn: () => impl.signIn(), signOut: () => impl.signOut(),
     list: () => impl.list(), get: id => impl.get(id), put: (id, m, d) => impl.put(id, m, d), del: id => impl.del(id),
+    getProfile: () => impl.getProfile(), setProfile: p => impl.setProfile(p),
   };
   return R;
 })();
