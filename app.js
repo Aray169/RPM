@@ -32,7 +32,7 @@ const KEGT = { awal: ['A. Kegiatan Awal', 'wAwal'], inti: ['B. Kegiatan Inti', '
 const blankK = k => ({ tipe: kv(KEG[k][0]), manual: '', detail: '' });
 const blankC = () => ({ k: '', akt: '' });
 const blankP = n => ({ ke: n, jp: '2 JP', mJP: '40', wAwal: '', wInti: '', wPenutup: '', awal: [blankK('awal')], inti: [blankK('inti')], penutup: [blankK('penutup')], tp: [], ket: [], ketL: [''], rep: [], repL: [''], aks: [], aksL: [''], dupCat: '', casel: [blankC()] });
-const blankL = () => ({ waktu: WAKTU[0], jenis: 'Pertanyaan Pemantik', manual: '', detail: '', tp: [], cara: [], caraLain: '' });
+const blankL = () => ({ waktu: WAKTU[0], jenis: 'Pertanyaan Pemantik', manual: '', detail: '', tp: [], cara: [], caraL: [''] });
 const blankR = () => ({ tp: '', k: '', l: ['', '', '', ''] });
 const blankS = () => ({ k: '', ind: '', nilai: 'Observasi' });
 const blankM = () => ({ jenis: '', manual: '', nama: '', peran: '' });
@@ -64,6 +64,7 @@ try { D = JSON.parse(localStorage.getItem(KEY)); } catch (e) { D = null; }
 if (!D || !D.ped || !D.tuj || D.tuj.kunciP === undefined) D = blank();
 if (D.mode === undefined) D.mode = 'terpadu'; /* data lama tetap memakai mode lengkap */
 /* data lama: satu isian "lainnya" DUP dipindah menjadi daftar yang bisa ditambah */
+D.bukti.lain.forEach(x => { if (!Array.isArray(x.caraL)) x.caraL = [String(x.caraLain || '')]; });
 D.ped.forEach(q => [['ket', 'ketLain'], ['rep', 'repLain'], ['aks', 'aksLain']].forEach(([k, o]) => { if (!Array.isArray(q[k + 'L'])) q[k + 'L'] = [String(q[o] || '')]; }));
 const um = () => D.mode === 'umum';
 const NAMA_UMUM = [null, null, 'Tujuan Pembelajaran', 'Asesmen', 'Kegiatan Pembelajaran'];
@@ -82,7 +83,7 @@ const MAN = (p, ph) => g(D, p + '.tipe') === 'Lainnya' ? `<input style="margin-t
 const CHK = (p, opts) => opts.length ? `<div class="chips">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<label><input type="checkbox" data-c="${p}" value="${esc(v)}" ${g(D, p).includes(v) ? 'checked' : ''}><span title="${esc(l)}">${esc(l)}</span></label>`; }).join('')}</div>` : '<p class="hint">Isi Tujuan Pembelajaran di Langkah 3 terlebih dahulu.</p>';
 const LIST = (label, p, ph, hint, ta) => `<div class="f"><span>${label}${hint ? `<i title="${esc(hint)}">ⓘ</i>` : ''}</span>${g(D, p).map((v, i) => `<div class="row" style="align-items:flex-start">${ta ? `<textarea rows="2" data-p="${p}.${i}" placeholder="${esc(ph)}">${esc(v)}</textarea>` : `<input data-p="${p}.${i}" value="${esc(v)}" placeholder="${esc(ph)}">`}<button class="x" data-del="${p}:${i}">×</button></div>`).join('')}<button class="add" data-add="${p}">+ Tambah</button></div>`;
 const TA = (p, ph, rows) => `<textarea rows="${rows || 2}" data-p="${p}" placeholder="${esc(ph)}">${esc(g(D, p))}</textarea>`;
-const LAINL = (p, ph) => `<div class="f" style="margin:10px 0 0">${g(D, p).map((v, i) => `<div class="row"><input data-p="${p}.${i}" value="${esc(v)}" placeholder="${esc(ph)}"><button class="x" data-del="${p}:${i}">×</button></div>`).join('')}<button class="add" data-add="${p}">+ Tambah lainnya</button></div>`;
+const LAINL = (p, ph) => `<div class="f" style="margin:10px 0 6px">${g(D, p).map((v, i) => `<div class="row"><input data-p="${p}.${i}" value="${esc(v)}" placeholder="${esc(ph)}"><button class="x" data-del="${p}:${i}">×</button></div>`).join('')}<button class="add" data-add="${p}">+ Tambah lainnya</button></div>`;
 const DEL = (p, i) => `<button class="x" data-del="${p}:${i}">×</button>`;
 const ADDB = (p, t) => `<button class="add" data-add="${p}">${t}</button>`;
 const tpOpts = () => D.tuj.tp.map((t, i) => t.trim() ? ['TP' + (i + 1), 'TP ' + (i + 1) + ': ' + t.trim().slice(0, 110)] : null).filter(Boolean);
@@ -130,13 +131,13 @@ const STEPS = [
     <h3>${um() ? 'Asesmen awal, formatif, dan sumatif' : 'B. Asesmen pendukung (awal, formatif, sumatif)'}</h3>
     ${D.bukti.lain.map((x, i) => `<div class="blk" style="--c:var(--ubd)"><div class="g2">${S('Waktu', `bukti.lain.${i}.waktu`, WAKTU, 1)}<label class="f"><span>Jenis</span>${SO(`bukti.lain.${i}.jenis`, JENISW[x.waktu] || JENISW[WAKTU[0]], 1)}${x.jenis === 'Lainnya' ? `<input style="margin-top:6px" data-p="bukti.lain.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis manual...">` : ''}</label></div>
     ${F('Instrumen atau teknik', `bukti.lain.${i}.detail`, { area: 2, ph: 'Contoh: Guru mengamati ... memakai daftar cek berisi ... aspek' })}<label class="f"><span>TP terkait</span></label>${CHK(`bukti.lain.${i}.tp`, tpOpts())}
-    ${um() ? '' : `<label class="f"><span>Cara murid menunjukkan hasil (DUP)</span></label>${CHK(`bukti.lain.${i}.cara`, CARA)}<input data-p="bukti.lain.${i}.caraLain" value="${esc(x.caraLain)}" placeholder="Lainnya: tulis cara sendiri (opsional)" style="margin-bottom:10px">`}<button class="x" data-del="bukti.lain:${i}">Hapus bukti ini</button></div>`).join('')}
+    ${um() ? '' : `<label class="f"><span>Cara murid menunjukkan hasil (DUP)</span></label>${CHK(`bukti.lain.${i}.cara`, CARA)}${LAINL(`bukti.lain.${i}.caraL`, 'Lainnya: tulis cara sendiri (opsional)')}`}<button class="x" data-del="bukti.lain:${i}">Hapus bukti ini</button></div>`).join('')}
     ${ADDB('bukti.lain', '+ Tambah asesmen')}
     ${um() ? '' : `<h3>C. Penilaian sosial emosional (CASEL)</h3><p class="hint">Tiap kompetensi yang dituju perlu punya indikator dan cara menilai.</p>
     ${D.bukti.sel.map((x, i) => `<div class="blk" style="--c:var(--sel)"><div class="row">${SO(`bukti.sel.${i}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL('bukti.sel', i)}</div>${TA(`bukti.sel.${i}.ind`, 'Indikator perilaku yang diamati. Contoh: murid memberi semangat pada rekan yang belum berhasil')}${S('Cara menilai', `bukti.sel.${i}.nilai`, NILAI)}</div>`).join('')}${ADDB('bukti.sel', '+ Tambah penilaian CASEL')}`}</div>`; }],
   ['Tahap 3: Pengalaman Belajar', () => `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 3</span>'}${um() ? head('Kegiatan Pembelajaran', 'Rancang kegiatan belajar untuk tiap pertemuan.') : head('Pengalaman Belajar', 'Rancang kegiatan yang mengantar murid ke bukti di Tahap 2, sambil menyisipkan DUP dan CASEL.')}</div>
     ${D.ped.map((p, i) => { const w = wInfo(p); return `<div class="card"><h3 style="margin-top:0">Pertemuan ${i + 1}</h3>
-    <div class="g3">${S('Pertemuan ke-', `ped.${i}.ke`, [1, 2, 3, 4, 5, 6, 7, 8].map(String))}${S('Alokasi JP', `ped.${i}.jp`, JP, 1)}${F('Menit per JP', `ped.${i}.mJP`, { type: 'number', min: 1 })}</div>
+    <div class="g3 tri">${S('Pertemuan ke-', `ped.${i}.ke`, [1, 2, 3, 4, 5, 6, 7, 8].map(String))}${S('Alokasi JP', `ped.${i}.jp`, JP, 1)}${F('Menit per JP', `ped.${i}.mJP`, { type: 'number', min: 1 })}</div>
     <p class="hint" id="tot${i}" style="margin-top:-6px">${w.tot}</p>
     <label class="f"><span>TP yang dituju</span></label>${CHK(`ped.${i}.tp`, tpOpts())}
     ${Object.keys(KEGT).map(k => `<div class="blk" style="--c:var(--ubd)"><div class="row"><h4 style="flex:1">${KEGT[k][0]}</h4><input type="number" min="0" style="max-width:110px" data-p="ped.${i}.${KEGT[k][1]}" value="${esc(g(D, `ped.${i}.${KEGT[k][1]}`))}" placeholder="0"><span class="unit">menit</span></div>
@@ -302,7 +303,7 @@ function render(top) {
   }
   $('view').innerHTML = STEPS[cur][1]();
   drawSteps();
-  $('pos').textContent = 'Langkah ' + (cur + 1) + ' dari ' + STEPS.length;
+  $('pos').textContent = 'Langkah ' + (cur + 1) + ' dari ' + STEPS.length; $('pos').dataset.s = (cur + 1) + '/' + STEPS.length;
   $('prev').disabled = cur === 0; $('next').disabled = cur === STEPS.length - 1;
   $('cekH').textContent = um() ? 'Cek kelengkapan' : 'Cek keterpaduan';
   cek(); if (top) window.scrollTo(0, 0); if (STEPS[cur][0] === 'Lampiran') listLamp();
@@ -444,7 +445,7 @@ async function unduh(btn) {
 
     // 5. Asesmen (UbD tahap 2: bukti)
     const as = (title, items) => [...full(title, ''), ...(items.length ? items : [b1('-')]).map(p => new TableRow({ children: [new TableCell({ width: W(100), children: [p] })] }))];
-    const lain = pref => B.lain.filter(x => x.waktu.startsWith(pref) && (x.detail.trim() || x.manual.trim())).map(x => new Paragraph({ children: [R('   ● ' + (x.jenis === 'Lainnya' ? x.manual || 'Lainnya' : x.jenis) + ': ', { bold: true }), ...runs(x.detail), new TextRun({ text: '', break: 1 }), R('      TP terkait: ' + (x.tp.join(', ') || '-') + (um() ? '.' : '. Cara murid menunjukkan hasil: ' + gab(x.cara, x.caraLain) + '.'))], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } }));
+    const lain = pref => B.lain.filter(x => x.waktu.startsWith(pref) && (x.detail.trim() || x.manual.trim())).map(x => new Paragraph({ children: [R('   ● ' + (x.jenis === 'Lainnya' ? x.manual || 'Lainnya' : x.jenis) + ': ', { bold: true }), ...runs(x.detail), new TextRun({ text: '', break: 1 }), R('      TP terkait: ' + (x.tp.join(', ') || '-') + (um() ? '.' : '. Cara murid menunjukkan hasil: ' + gab(x.cara, lainL(x.caraL)) + '.'))], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } }));
     const sl = B.sel.filter(s => s.k).map(s => new Paragraph({ children: [R('   ● ' + s.k + ': ', { bold: true }), ...runs(s.ind || '-'), R(' (Cara menilai: ' + s.nilai + ')')], indent: { left: 450, hanging: 300 }, spacing: { before: 80, after: 80 } }));
     content.push(H('5. ASESMEN PEMBELAJARAN'), ...(um() ? [] : [new Paragraph({ children: [R('Asesmen Pendukung', { bold: true })], spacing: { after: 120 } })]),
       T([...as('A. Asesmen Awal Pembelajaran', lain('Awal')), ...as('B. Asesmen Formatif', lain('Selama')), ...as('C. Asesmen Sumatif', lain('Akhir')), ...(um() ? [] : as('D. Penilaian Sosial Emosional (CASEL)', sl))]));
