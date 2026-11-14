@@ -7,35 +7,93 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-v="boot">
-<header>
-  <div><b>DeepLearn Builder</b><small>Rancangan Pembelajaran Mendalam · UbD · DUP · CASEL</small></div>
+
+<header id="top">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#4f46e5"/><path d="M9 11h14M9 16h14M9 21h9" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <div><b>DeepLearn Builder</b><small>Rancangan Pembelajaran Mendalam</small></div>
+  </div>
+  <nav id="topnav" aria-label="Menu utama">
+    <button class="navb" data-go="list">Daftar RPM</button>
+    <button class="navb" data-go="profil">Profil</button>
+  </nav>
   <div class="hr">
-    <select id="modeSw" class="ed-only" title="Mode rancangan" aria-label="Mode rancangan"><option value="" disabled>Pilih mode</option><option value="umum">Umum</option><option value="terpadu">Terintegrasi</option></select>
-    <em id="saved" class="ed-only"></em>
-    <button class="ghost ed-only" id="toList">Daftar RPM</button>
-    <button class="ed-only" id="saveDraft">Simpan draft</button>
-    <span class="who ls-only"><img id="whoImg" alt="" hidden><span id="whoName"></span><button class="ghost" id="logout">Keluar</button></span>
+    <button class="newtop" id="newTop" data-go="new">+ RPM baru</button>
+    <div class="acct">
+      <button class="acctbtn" id="acctBtn" aria-haspopup="true" aria-label="Menu akun"><span class="av" id="avTop"></span><span id="whoName"></span><span class="car">▾</span></button>
+      <div class="menu" id="acctMenu" hidden>
+        <div class="mi-h" id="whoMail"></div>
+        <button data-go="profil">Profil saya</button>
+        <button id="logout">Keluar</button>
+      </div>
+    </div>
   </div>
 </header>
 
-<section id="login" class="screen" hidden>
-  <div class="card logincard">
-    <h2>Masuk</h2>
-    <p class="sub" id="bootMsg">Memuat...</p>
-    <div id="loginBox" hidden>
-      <p class="sub">Masuk dengan akun Google agar RPM tersimpan di akun Anda dan bisa dibuka dari perangkat mana pun.</p>
-      <button class="big" id="gLogin">Masuk dengan Google</button>
-      <p class="warn wmsg" id="loginMsg"></p>
+<section id="login" class="loginpage" hidden>
+  <div class="lp-hero">
+    <div class="lp-brand"><svg width="38" height="38" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#fff"/><path d="M9 11h14M9 16h14M9 21h9" stroke="#4f46e5" stroke-width="2.4" stroke-linecap="round"/></svg><span>DeepLearn Builder</span></div>
+    <h1>Susun RPM Pembelajaran Mendalam dengan lebih mudah</h1>
+    <ul class="lp-points">
+      <li>Panduan UbD, DUP, dan CASEL di setiap langkah</li>
+      <li>RPM tersimpan di akun, bisa dibuka dari HP maupun laptop</li>
+      <li>Unduh .docx siap cetak, lengkap dengan lampiran</li>
+    </ul>
+  </div>
+  <div class="lp-panel">
+    <div class="lp-card">
+      <h2>Masuk</h2>
+      <p class="sub" id="bootMsg">Memuat...</p>
+      <div id="loginBox" hidden>
+        <p class="sub">Gunakan akun Google Anda untuk mulai menyusun dan menyimpan RPM.</p>
+        <button class="gbtn" id="gLogin"><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>Masuk dengan Google</span></button>
+        <p class="warn wmsg" id="loginMsg"></p>
+        <p class="lp-note">RPM Anda hanya bisa dibaca oleh akun Anda sendiri.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <section id="listv" class="screen" hidden>
-  <div class="listhead"><div><h2>Daftar RPM</h2><p class="sub">Semua RPM Anda: lanjutkan draft, edit ulang, atau unduh lagi.</p></div><button class="big" id="newRpm">+ RPM baru</button></div>
+  <div class="listhead"><div><h2>Daftar RPM</h2><p class="sub">Semua RPM Anda: lanjutkan draft, edit ulang, atau unduh lagi.</p></div><button class="big" id="newRpm" data-go="new">+ RPM baru</button></div>
   <p class="notice" id="localNote" hidden></p>
+  <p class="notice info" id="profNote" hidden>Lengkapi profil Anda agar identitas dan pengesahan RPM terisi otomatis. <button class="linkb" data-go="profil">Isi profil</button></p>
   <div class="tabs" id="tabs"></div>
   <div id="listBody"></div>
 </section>
+
+<section id="profilv" class="screen" hidden>
+  <div class="card prof">
+    <h2>Profil Saya</h2>
+    <p class="sub">Data ini otomatis mengisi identitas dan pengesahan di RPM baru. RPM yang sudah dibuat tidak berubah.</p>
+    <div class="avrow">
+      <div class="avbig" id="avBig"></div>
+      <div>
+        <label class="add filebtn">Ganti foto<input type="file" id="fotoIn" accept="image/*" hidden></label>
+        <button class="ghost" id="fotoDel" type="button">Hapus foto</button>
+        <p class="hint">Jika tidak mengunggah foto, foto akun Google dipakai.</p>
+      </div>
+    </div>
+    <div class="g2">
+      <label class="f"><span>Nama lengkap beserta gelar</span><input id="pf-nama" placeholder="Contoh: Ariesta Vandera, S.Pd."></label>
+      <label class="f"><span>NIP</span><input id="pf-nip" inputmode="numeric" placeholder="Kosongkan jika belum ada"></label>
+      <label class="f"><span>Mata pelajaran yang diampu</span><input id="pf-mapel" placeholder="Contoh: PJOK"></label>
+      <label class="f"><span>Nama sekolah</span><input id="pf-sekolah" placeholder="Contoh: SMP Negeri 2 Semarang"></label>
+      <label class="f"><span>Kota atau kabupaten</span><input id="pf-kota" placeholder="Contoh: Semarang"></label>
+      <label class="f"><span>Kepala sekolah</span><input id="pf-kepsek" placeholder="Nama beserta gelar"></label>
+      <label class="f"><span>NIP kepala sekolah</span><input id="pf-nipk" inputmode="numeric"></label>
+    </div>
+    <div class="pactions"><button class="big" id="profSave">Simpan profil</button><span class="hint" id="profMsg"></span></div>
+  </div>
+</section>
+
+<div class="edbar" id="edbar" hidden>
+  <button class="ghost back" id="toList" data-go="list">← Daftar RPM</button>
+  <span class="edtitle" id="edTitle"></span>
+  <em id="saved"></em>
+  <label class="modesel"><span>Mode</span><select id="modeSw" title="Mode rancangan" aria-label="Mode rancangan"><option value="" disabled>Pilih mode</option><option value="umum">Umum</option><option value="terpadu">Terintegrasi</option></select></label>
+  <button id="saveDraft">Simpan draft</button>
+</div>
 
 <div class="wrap" id="editor" hidden>
   <aside>
@@ -47,6 +105,12 @@
     <div class="nav"><button class="ghost" id="prev">← Kembali</button><span id="pos"></span><button id="next">Lanjut →</button></div>
   </main>
 </div>
+
+<nav id="tabbar" aria-label="Menu utama">
+  <button data-go="list"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Daftar</span></button>
+  <button data-go="new"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>RPM baru</span></button>
+  <button data-go="profil"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profil</span></button>
+</nav>
 <div id="toast" role="status"></div>
 <script src="docx.js"></script>
 <script src="pizzip.min.js"></script>
