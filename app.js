@@ -31,7 +31,7 @@ const KEGT = { awal: ['A. Kegiatan Awal', 'wAwal'], inti: ['B. Kegiatan Inti', '
 
 const blankK = k => ({ tipe: kv(KEG[k][0]), manual: '', detail: '' });
 const blankC = () => ({ k: '', akt: '' });
-const blankP = n => ({ ke: n, jp: '2 JP', mJP: '40', wAwal: '', wInti: '', wPenutup: '', awal: [blankK('awal')], inti: [blankK('inti')], penutup: [blankK('penutup')], tp: [], ket: [], ketLain: '', rep: [], repLain: '', aks: [], aksLain: '', dupCat: '', casel: [blankC()] });
+const blankP = n => ({ ke: n, jp: '2 JP', mJP: '40', wAwal: '', wInti: '', wPenutup: '', awal: [blankK('awal')], inti: [blankK('inti')], penutup: [blankK('penutup')], tp: [], ket: [], ketL: [''], rep: [], repL: [''], aks: [], aksL: [''], dupCat: '', casel: [blankC()] });
 const blankL = () => ({ waktu: WAKTU[0], jenis: 'Pertanyaan Pemantik', manual: '', detail: '', tp: [], cara: [], caraLain: '' });
 const blankR = () => ({ tp: '', k: '', l: ['', '', '', ''] });
 const blankS = () => ({ k: '', ind: '', nilai: 'Observasi' });
@@ -63,9 +63,12 @@ let D, cur = 0;
 try { D = JSON.parse(localStorage.getItem(KEY)); } catch (e) { D = null; }
 if (!D || !D.ped || !D.tuj || D.tuj.kunciP === undefined) D = blank();
 if (D.mode === undefined) D.mode = 'terpadu'; /* data lama tetap memakai mode lengkap */
+/* data lama: satu isian "lainnya" DUP dipindah menjadi daftar yang bisa ditambah */
+D.ped.forEach(q => [['ket', 'ketLain'], ['rep', 'repLain'], ['aks', 'aksLain']].forEach(([k, o]) => { if (!Array.isArray(q[k + 'L'])) q[k + 'L'] = [String(q[o] || '')]; }));
 const um = () => D.mode === 'umum';
 const NAMA_UMUM = [null, null, 'Tujuan Pembelajaran', 'Asesmen', 'Kegiatan Pembelajaran'];
-const sn = i => (um() && NAMA_UMUM[i]) || STEPS[i][0];
+let lampN = 0; /* jumlah lampiran tersimpan, ditampilkan pada nama langkah */
+const sn = i => { const b = (um() && NAMA_UMUM[i]) || STEPS[i][0]; return b === 'Lampiran' && lampN ? b + ' (' + lampN + ')' : b; };
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) { $('saved').textContent = 'Penyimpanan penuh (gambar terlalu besar?)'; return; }
   $('saved').textContent = 'Tersimpan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -79,6 +82,7 @@ const MAN = (p, ph) => g(D, p + '.tipe') === 'Lainnya' ? `<input style="margin-t
 const CHK = (p, opts) => opts.length ? `<div class="chips">${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<label><input type="checkbox" data-c="${p}" value="${esc(v)}" ${g(D, p).includes(v) ? 'checked' : ''}><span title="${esc(l)}">${esc(l)}</span></label>`; }).join('')}</div>` : '<p class="hint">Isi Tujuan Pembelajaran di Langkah 3 terlebih dahulu.</p>';
 const LIST = (label, p, ph, hint, ta) => `<div class="f"><span>${label}${hint ? `<i title="${esc(hint)}">ⓘ</i>` : ''}</span>${g(D, p).map((v, i) => `<div class="row" style="align-items:flex-start">${ta ? `<textarea rows="2" data-p="${p}.${i}" placeholder="${esc(ph)}">${esc(v)}</textarea>` : `<input data-p="${p}.${i}" value="${esc(v)}" placeholder="${esc(ph)}">`}<button class="x" data-del="${p}:${i}">×</button></div>`).join('')}<button class="add" data-add="${p}">+ Tambah</button></div>`;
 const TA = (p, ph, rows) => `<textarea rows="${rows || 2}" data-p="${p}" placeholder="${esc(ph)}">${esc(g(D, p))}</textarea>`;
+const LAINL = (p, ph) => `<div class="f" style="margin:10px 0 0">${g(D, p).map((v, i) => `<div class="row"><input data-p="${p}.${i}" value="${esc(v)}" placeholder="${esc(ph)}"><button class="x" data-del="${p}:${i}">×</button></div>`).join('')}<button class="add" data-add="${p}">+ Tambah lainnya</button></div>`;
 const DEL = (p, i) => `<button class="x" data-del="${p}:${i}">×</button>`;
 const ADDB = (p, t) => `<button class="add" data-add="${p}">${t}</button>`;
 const tpOpts = () => D.tuj.tp.map((t, i) => t.trim() ? ['TP' + (i + 1), 'TP ' + (i + 1) + ': ' + t.trim().slice(0, 110)] : null).filter(Boolean);
@@ -121,8 +125,8 @@ const STEPS = [
     <div class="f"><span>Integrasi SDGs</span>${D.tuj.sdgs.map((x, i) => `<div class="row">${SO(`tuj.sdgs.${i}.sdg`, SDG)}<input data-p="tuj.sdgs.${i}.ket" value="${esc(x.ket)}" placeholder="Deskripsi...">${DEL('tuj.sdgs', i)}</div>`).join('')}${ADDB('tuj.sdgs', '+ Tambah')}</div></div>`],
   ['Tahap 2: Bukti Asesmen', () => { const t = D.bukti.tugas; return `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 2</span>'}${um() ? head('Asesmen', 'Rencanakan asesmen awal, formatif, dan sumatif.') : head('Bukti Asesmen', 'Tentukan bukti keberhasilan sebelum merancang kegiatan.')}
     ${um() ? '' : `<h3>A. Asesmen utama (tugas kinerja)</h3>${F('Nama tugas', 'bukti.tugas.nama', { ph: 'Contoh: Presentasi hasil investigasi' })}${F('Deskripsi tugas', 'bukti.tugas.desk', { area: 3, ph: 'Contoh: Murid melakukan ..., lalu menjelaskan ...' })}
-    <div class="scroll"><table class="rb"><tr><th>TP</th><th>Kriteria</th>${LV.map(l => `<th>${l}</th>`).join('')}<th></th></tr>
-    ${t.rubrik.map((r, i) => `<tr><td style="min-width:90px">${SO(`bukti.tugas.rubrik.${i}.tp`, tpShort())}</td><td><input data-p="bukti.tugas.rubrik.${i}.k" value="${esc(r.k)}" placeholder="Contoh: Ketepatan"></td>${r.l.map((v, j) => `<td><textarea rows="3" data-p="bukti.tugas.rubrik.${i}.l.${j}">${esc(v)}</textarea></td>`).join('')}<td>${DEL('bukti.tugas.rubrik', i)}</td></tr>`).join('')}</table></div>${ADDB('bukti.tugas.rubrik', '+ Tambah kriteria')}`}
+    <div class="scroll"><table class="rb rbm"><tr><th>TP</th><th>Kriteria</th>${LV.map(l => `<th>${l}</th>`).join('')}<th></th></tr>
+    ${t.rubrik.map((r, i) => `<tr><td data-l="TP" style="min-width:90px">${SO(`bukti.tugas.rubrik.${i}.tp`, tpShort())}</td><td data-l="Kriteria"><input data-p="bukti.tugas.rubrik.${i}.k" value="${esc(r.k)}" placeholder="Contoh: Ketepatan"></td>${r.l.map((v, j) => `<td data-l="${LV[j]}"><textarea rows="3" data-p="bukti.tugas.rubrik.${i}.l.${j}">${esc(v)}</textarea></td>`).join('')}<td>${DEL('bukti.tugas.rubrik', i)}</td></tr>`).join('')}</table></div>${ADDB('bukti.tugas.rubrik', '+ Tambah kriteria')}`}
     <h3>${um() ? 'Asesmen awal, formatif, dan sumatif' : 'B. Asesmen pendukung (awal, formatif, sumatif)'}</h3>
     ${D.bukti.lain.map((x, i) => `<div class="blk" style="--c:var(--ubd)"><div class="g2">${S('Waktu', `bukti.lain.${i}.waktu`, WAKTU, 1)}<label class="f"><span>Jenis</span>${SO(`bukti.lain.${i}.jenis`, JENISW[x.waktu] || JENISW[WAKTU[0]], 1)}${x.jenis === 'Lainnya' ? `<input style="margin-top:6px" data-p="bukti.lain.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis manual...">` : ''}</label></div>
     ${F('Instrumen atau teknik', `bukti.lain.${i}.detail`, { area: 2, ph: 'Contoh: Guru mengamati ... memakai daftar cek berisi ... aspek' })}<label class="f"><span>TP terkait</span></label>${CHK(`bukti.lain.${i}.tp`, tpOpts())}
@@ -138,7 +142,7 @@ const STEPS = [
     ${Object.keys(KEGT).map(k => `<div class="blk" style="--c:var(--ubd)"><div class="row"><h4 style="flex:1">${KEGT[k][0]}</h4><input type="number" min="0" style="max-width:110px" data-p="ped.${i}.${KEGT[k][1]}" value="${esc(g(D, `ped.${i}.${KEGT[k][1]}`))}" placeholder="0"><span class="unit">menit</span></div>
       ${p[k].map((x, j) => `<div class="row" style="align-items:flex-start"><div style="flex:1">${SO(`ped.${i}.${k}.${j}.tipe`, KEG[k], 1)}${MAN(`ped.${i}.${k}.${j}`)}</div><div style="flex:3"><textarea rows="2" data-p="ped.${i}.${k}.${j}.detail" placeholder="Detail langkah...">${esc(x.detail)}</textarea></div>${DEL(`ped.${i}.${k}`, j)}</div>`).join('')}${ADDB(`ped.${i}.${k}`, '+ Sub-kegiatan')}</div>`).join('')}
     <p class="${w.cls}" id="wm${i}">${w.msg}</p>
-    ${um() ? '' : `${Object.keys(DUP).map(k => `<div class="blk" style="--c:var(--dup)"><span class="tag t-dup">DUP</span><h4>${DUP[k].t}</h4><p>${DUP[k].q}</p>${CHK(`ped.${i}.${k}`, DUP[k].o)}<input data-p="ped.${i}.${k}Lain" value="${esc(p[k + 'Lain'])}" placeholder="Lainnya: tulis strategi sendiri (opsional)"></div>`).join('')}
+    ${um() ? '' : `${Object.keys(DUP).map(k => `<div class="blk" style="--c:var(--dup)"><span class="tag t-dup">DUP</span><h4>${DUP[k].t}</h4><p>${DUP[k].q}</p>${CHK(`ped.${i}.${k}`, DUP[k].o)}${LAINL(`ped.${i}.${k}L`, 'Lainnya: tulis strategi sendiri (opsional)')}</div>`).join('')}
     ${F('Catatan strategi DUP lain', `ped.${i}.dupCat`, { area: 2, ph: 'Rincian pelaksanaan strategi DUP yang dipilih' })}
     <div class="blk" style="--c:var(--sel)"><span class="tag t-sel">CASEL</span><h4>Integrasi sosial emosional</h4><p>Tambahkan satu entri untuk tiap kompetensi yang dilatih pada pertemuan ini.</p>
     ${p.casel.map((c, j) => `<div class="blk" style="--c:var(--sel);background:#fff"><div class="row">${SO(`ped.${i}.casel.${j}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL(`ped.${i}.casel`, j)}</div>${TA(`ped.${i}.casel.${j}.akt`, 'Aktivitas. Contoh: check-in perasaan di pembuka, kerja kelompok bergilir, refleksi penutup')}</div>`).join('')}${ADDB(`ped.${i}.casel`, '+ CASEL')}</div>`}
@@ -154,8 +158,9 @@ const STEPS = [
     <div class="f"><span>Integrasi TPACK / digital</span>${D.pend.tpack.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.tpack.${i}.alat`, TPK, 1)}${DEL('pend.tpack', i)}</div>${x.alat === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.tpack.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis alat manual...">` : ''}${TA(`pend.tpack.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('pend.tpack', '+ Alat digital')}</div></div>`],
   ['Pengesahan', () => `<div class="card">${head('Pengesahan', 'Data untuk blok tanda tangan.')}<div class="g2">${F('Kota atau kabupaten', 'ttd.kota', { ph: 'Semarang' })}${F('Tanggal dokumen', 'ttd.tgl', { type: 'date' })}${F('Kepala sekolah', 'ttd.kepsek')}${F('NIP kepala sekolah', 'ttd.nipk', { ph: 'Nomor NIP saja' })}${F('Guru mata pelajaran', 'ttd.guru')}${F('NIP guru', 'ttd.nipg', { ph: 'Nomor NIP saja' })}</div></div>`],
   ['Lampiran', () => `<div class="card">${head('Lampiran (.docx)', 'Berkas yang diunggah di sini digabungkan di akhir dokumen saat diunduh.')}
-    <div class="g2"><label class="f"><span>Judul lampiran</span><input id="judulLamp" placeholder="Contoh: LKPD 1"></label><label class="f"><span>Berkas .docx</span><input type="file" id="fileLamp" accept=".docx" multiple></label></div>
-    <button class="add" data-act="addlamp">+ Tambahkan ke daftar</button><div id="lamp" style="margin-top:14px"></div></div>`],
+    <label class="f"><span>Judul lampiran (opsional, isi sebelum memilih berkas)</span><input id="judulLamp" placeholder="Contoh: LKPD 1"></label>
+    <label class="add filebtn">+ Pilih berkas .docx<input type="file" id="fileLamp" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden></label>
+    <p class="hint" id="lampMsg">Berkas langsung tersimpan begitu dipilih dan tetap ada saat Anda berpindah langkah.</p><div id="lamp" style="margin-top:14px"></div></div>`],
   ['Ringkasan dan Unduh', () => `<div class="card">${head('Ringkasan dan Unduh', um() ? 'Periksa kelengkapan sebelum mengunduh.' : 'Periksa keterpaduan UbD, DUP, dan CASEL sebelum mengunduh.')}
     <ul style="list-style:none;padding:0">${checks().map(([k, ok, m]) => `<li style="padding:6px 0"><span class="${ok ? 'ok' : 'warn'}">${ok ? '✔' : '⚠'}</span> <b>${k}</b> · ${esc(m)}</li>`).join('')}</ul>
     <button class="big" data-act="dl">Unduh RPM (.docx)</button></div>`]
@@ -175,7 +180,7 @@ function checks() {
   add('UbD', D.tuj.esensial.some(x => x.trim()), 'Pertanyaan esensial terisi');
   add('UbD', tp.length > 0, 'Tujuan pembelajaran terisi');
   tp.forEach(([t, n]) => { add('UbD', cov(n), n + ' punya bukti asesmen'); add('UbD', D.ped.some(x => x.tp.includes(n)), n + ' dilatih di suatu pertemuan'); });
-  D.ped.forEach((p, i) => Object.keys(DUP).forEach(x => add('DUP', p[x].length > 0 || p[x + 'Lain'].trim() !== '', 'Pertemuan ' + (i + 1) + ': ' + DUP[x].t)));
+  D.ped.forEach((p, i) => Object.keys(DUP).forEach(x => add('DUP', p[x].length > 0 || (p[x + 'L'] || []).some(v => String(v).trim() !== ''), 'Pertemuan ' + (i + 1) + ': ' + DUP[x].t)));
   add('CASEL', D.tuj.selTuju.length > 0, 'Tujuan sosial emosional dipilih');
   D.tuj.selTuju.forEach(k => {
     add('CASEL', D.ped.some(p => p.casel.some(c => c.k === k && c.akt.trim())), k + ' dilatih di suatu pertemuan');
@@ -190,25 +195,42 @@ function cek() {
 }
 
 /* ---------- lampiran (IndexedDB) ---------- */
-let db;
-const rq = indexedDB.open('DB_RPM', 1);
-rq.onupgradeneeded = e => { const d = e.target.result; if (!d.objectStoreNames.contains('lampiran')) d.createObjectStore('lampiran', { keyPath: 'id', autoIncrement: true }); };
-rq.onsuccess = e => { db = e.target.result; listLamp(); };
-const lampAll = () => new Promise(r => { if (!db) return r([]); const q = db.transaction('lampiran', 'readonly').objectStore('lampiran').getAll(); q.onsuccess = () => r(q.result); q.onerror = () => r([]); });
+let db, dbErr = false;
+try { if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+const dbReady = new Promise(res => {
+  let rq; try { rq = indexedDB.open('DB_RPM', 1); } catch (e) { dbErr = true; return res(); }
+  rq.onupgradeneeded = e => { const d = e.target.result; if (!d.objectStoreNames.contains('lampiran')) d.createObjectStore('lampiran', { keyPath: 'id', autoIncrement: true }); };
+  rq.onsuccess = e => { db = e.target.result; res(); listLamp(); };
+  rq.onerror = rq.onblocked = () => { dbErr = true; res(); };
+});
+const dbWait = () => Promise.race([dbReady, new Promise(r => setTimeout(r, 4000))]);
+const lampAll = async () => {
+  await dbWait(); if (!db) return [];
+  return new Promise(r => { try { const q = db.transaction('lampiran', 'readonly').objectStore('lampiran').getAll(); q.onsuccess = () => r(q.result); q.onerror = () => r([]); } catch (e) { r([]); } });
+};
 async function listLamp() {
-  const el = $('lamp'); if (!el) return; const a = await lampAll();
+  const a = await lampAll(); lampN = a.length; drawSteps();
+  const el = $('lamp'); if (!el) return;
+  if (dbErr) { el.innerHTML = '<p class="warn">Penyimpanan lampiran tidak tersedia di peramban ini, jadi berkas tidak bisa disimpan. Gunakan aplikasi desktop atau peramban lain.</p>'; return; }
   el.innerHTML = a.length ? `<table class="rb"><tr><th>Judul</th><th>Berkas</th><th></th></tr>${a.map(x => `<tr><td>${esc(x.judul || '-')}</td><td>${esc(x.nama)}</td><td><button class="x" data-act="dellamp" data-id="${x.id}">Hapus</button></td></tr>`).join('')}</table>` : '<p class="hint">Belum ada lampiran.</p>';
 }
 async function addLamp() {
-  const fs = [...$('fileLamp').files], j = $('judulLamp').value.trim();
-  if (!fs.length) return alert('Pilih berkas .docx terlebih dahulu.');
-  if (!db) return alert('Penyimpanan belum siap, coba lagi sebentar.');
+  const inp = $('fileLamp'), fs = [...inp.files], j = $('judulLamp').value.trim();
+  if (!fs.length) return;
+  await dbWait();
+  if (!db) { inp.value = ''; return alert('Penyimpanan lampiran tidak tersedia, berkas tidak tersimpan.'); }
+  let n = 0;
   for (const f of fs) {
     if (!/\.docx$/i.test(f.name)) { alert(f.name + ' bukan .docx dan dilewati.'); continue; }
-    const buf = await f.arrayBuffer();
-    await new Promise(r => { const q = db.transaction('lampiran', 'readwrite').objectStore('lampiran').add({ judul: j || f.name, nama: f.name, konten: buf }); q.onsuccess = q.onerror = r; });
+    try {
+      const buf = await f.arrayBuffer();
+      await new Promise((res, rej) => { const q = db.transaction('lampiran', 'readwrite').objectStore('lampiran').add({ judul: j || f.name, nama: f.name, konten: buf }); q.onsuccess = () => res(); q.onerror = () => rej(q.error); });
+      n++;
+    } catch (e) { alert(f.name + ' gagal disimpan (' + ((e && e.name) || 'kesalahan') + ').'); }
   }
-  $('judulLamp').value = ''; $('fileLamp').value = ''; listLamp();
+  $('judulLamp').value = ''; inp.value = '';
+  await listLamp();
+  const m = $('lampMsg'); if (m && n) m.textContent = '✔ ' + n + ' berkas tersimpan.';
 }
 async function gabung(blob) {
   const ok = (await lampAll()).filter(x => x.konten && x.konten.byteLength > 0);
@@ -263,6 +285,14 @@ const chooser = () => `<div class="card">${head('Pilih jenis rancangan', 'Anda b
     <div class="blk" style="--c:var(--dup)"><h4>Mode Terintegrasi (UbD, DUP, CASEL)</h4><p>Menambahkan pemahaman abadi, bukti asesmen bertahap, pilihan DUP, dan integrasi sosial emosional.</p><button data-act="mode" data-m="terpadu">Pakai mode Terintegrasi</button></div>
   </div></div>`;
 
+function drawSteps() {
+  if (!D.mode) return;
+  const el = $('steps');
+  el.innerHTML = STEPS.map((s, i) => `<li data-s="${i}" class="${i === cur ? 'on' : ''}">${i + 1}. ${sn(i)}</li>`).join('');
+  const on = el.querySelector && el.querySelector('li.on');
+  if (on) el.scrollLeft = on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2;
+}
+
 /* ---------- render dan navigasi ---------- */
 function render(top) {
   $('modeSw').value = D.mode || '';
@@ -271,7 +301,7 @@ function render(top) {
     $('prev').disabled = true; $('next').disabled = true; if (top) window.scrollTo(0, 0); return;
   }
   $('view').innerHTML = STEPS[cur][1]();
-  $('steps').innerHTML = STEPS.map((s, i) => `<li data-s="${i}" class="${i === cur ? 'on' : ''}">${i + 1}. ${sn(i)}</li>`).join('');
+  drawSteps();
   $('pos').textContent = 'Langkah ' + (cur + 1) + ' dari ' + STEPS.length;
   $('prev').disabled = cur === 0; $('next').disabled = cur === STEPS.length - 1;
   $('cekH').textContent = um() ? 'Cek kelengkapan' : 'Cek keterpaduan';
@@ -297,6 +327,7 @@ $('view').oninput = e => {
 $('view').onchange = e => {
   const t = e.target;
   if (t.id === 'cover' && t.files[0]) return bacaSampul(t.files[0]);
+  if (t.id === 'fileLamp') return addLamp();
   if (!t.dataset.c) return;
   const a = g(D, t.dataset.c);
   if (t.checked) a.push(t.value); else a.splice(a.indexOf(t.value), 1);
@@ -309,7 +340,7 @@ $('view').onclick = async e => {
   if (a === 'dl') return unduh(b);
   if (a === 'rmcover') { D.cover = null; save(); return render(); }
   if (a === 'addlamp') return addLamp();
-  if (a === 'dellamp') { db.transaction('lampiran', 'readwrite').objectStore('lampiran').delete(+b.dataset.id).onsuccess = listLamp; return; }
+  if (a === 'dellamp') { if (!db) return; db.transaction('lampiran', 'readwrite').objectStore('lampiran').delete(+b.dataset.id).onsuccess = listLamp; return; }
   if (b.dataset.add) { g(D, b.dataset.add).push(mk(b.dataset.add)); save(); render(); }
   if (b.dataset.del) { const [p, i] = b.dataset.del.split(':'); del(p, +i); save(); render(); }
 };
@@ -320,7 +351,7 @@ $('next').onclick = () => { cur++; render(true); };
 $('reset').onclick = () => {
   if (!confirm('Mulai rancangan baru? Data yang sekarang dan semua lampiran akan dihapus.')) return;
   D = blank(); cur = 0; save();
-  if (db) db.transaction('lampiran', 'readwrite').objectStore('lampiran').clear();
+  lampN = 0; if (db) db.transaction('lampiran', 'readwrite').objectStore('lampiran').clear();
   render(true);
 };
 
@@ -353,6 +384,7 @@ async function unduh(btn) {
     const v = (x, d) => (x && String(x).trim()) ? x : (d || '..........................');
     const tgl = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '..........................';
     const gab = (arr, lain) => [...arr, ...(String(lain || '').trim() ? [String(lain).trim()] : [])].join(', ') || '-';
+    const lainL = a => (a || []).map(x => String(x).trim()).filter(Boolean).join(', ');
     const I = D.id, K = D.kenal, U = D.tuj, B = D.bukti, tg = B.tugas, Z = D.ttd, PD = D.pend;
     const content = [];
 
@@ -405,7 +437,7 @@ async function unduh(btn) {
       const cs = p.casel.filter(c => c.k).map(c => [c.k, c.akt || '-']);
       content.push(ctr('PERTEMUAN ' + p.ke + ' (' + p.jp + ' : ' + n + ' x ' + m + ' menit)', { bold: true }), new Paragraph({ children: [R('Tujuan Pembelajaran yang dituju: ', { bold: true }), R(p.tp.join(', ') || '-')], spacing: { before: 100, after: 160 } }),
         T([...keg('awal', 'Kegiatan Awal', p.wAwal), ...keg('inti', 'Kegiatan Inti', p.wInti), ...keg('penutup', 'Kegiatan Penutup', p.wPenutup),
-          ...(um() ? [] : [...sec('INTEGRASI DUP (DESAIN UNIVERSAL UNTUK PEMBELAJARAN)', [['Keterlibatan', gab(p.ket, p.ketLain)], ['Representasi', gab(p.rep, p.repLain)], ['Aksi dan Ekspresi', gab(p.aks, p.aksLain)], ...(p.dupCat.trim() ? [['Catatan', p.dupCat]] : [])]),
+          ...(um() ? [] : [...sec('INTEGRASI DUP (DESAIN UNIVERSAL UNTUK PEMBELAJARAN)', [['Keterlibatan', gab(p.ket, lainL(p.ketL))], ['Representasi', gab(p.rep, lainL(p.repL))], ['Aksi dan Ekspresi', gab(p.aks, lainL(p.aksL))], ...(p.dupCat.trim() ? [['Catatan', p.dupCat]] : [])]),
           ...sec('INTEGRASI SOSIAL EMOSIONAL (CASEL)', cs.length ? cs : [['Kompetensi', '-']])])], [450, 8576]),
         new Paragraph({ children: [R('')], spacing: { after: 300 } }));
     });
@@ -428,7 +460,7 @@ async function unduh(btn) {
     // 6. Peta keterpaduan
     const pc = (t, b, w) => new TableCell({ width: W(w), shading: b ? { fill: SH } : undefined, children: [std(t, b)] });
     if (!um()) content.push(H('6. PETA KETERPADUAN UbD, DUP, DAN CASEL'), T([new TableRow({ children: [pc('Pertemuan', true, 17), pc('TP', true, 13), pc('DUP', true, 40), pc('CASEL', true, 30)] }),
-      ...D.ped.map(p => new TableRow({ children: [pc('' + p.ke, false, 17), pc(p.tp.join(', ') || '-', false, 13), pc([gab(p.ket, p.ketLain), gab(p.rep, p.repLain), gab(p.aks, p.aksLain)].filter(x => x !== '-').join('; ') || '-', false, 40), pc(p.casel.filter(c => c.k).map(c => c.k).join(', ') || '-', false, 30)] }))], [1550, 1200, 3550, 2726]));
+      ...D.ped.map(p => new TableRow({ children: [pc('' + p.ke, false, 17), pc(p.tp.join(', ') || '-', false, 13), pc([gab(p.ket, lainL(p.ketL)), gab(p.rep, lainL(p.repL)), gab(p.aks, lainL(p.aksL))].filter(x => x !== '-').join('; ') || '-', false, 40), pc(p.casel.filter(c => c.k).map(c => c.k).join(', ') || '-', false, 30)] }))], [1550, 1200, 3550, 2726]));
 
     // Pengesahan
     const jabK = 'Kepala ' + v(I.sekolah), jabG = 'Guru Mata Pelajaran ' + v(I.mapel);
