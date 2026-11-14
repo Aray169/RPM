@@ -49,3 +49,40 @@ button:hover{filter:brightness(1.08)}button:disabled{opacity:.4;cursor:default}
 .rb td:nth-child(2){min-width:150px}
 .rb td:nth-child(n+3):not(:last-child){min-width:130px}
 #modeSw{width:auto;padding:8px 12px}
+label.filebtn{display:inline-block;cursor:pointer;margin-bottom:6px;padding:11px 20px;border-radius:10px;font-weight:600}
+.rb td{word-break:break-word}
+@media(max-width:820px){
+  body{-webkit-text-size-adjust:100%}
+  header{position:static;flex-wrap:wrap;padding:10px 14px}
+  header b{font-size:1.05rem}header small{display:none}
+  .hr{width:100%;justify-content:space-between;gap:8px}
+  .hr em{font-size:.75rem;flex:0 1 auto;min-width:0}
+  #modeSw{flex:1 1 auto;max-width:none;min-width:0}
+  .wrap{margin:0 auto 12px;padding:0 12px;gap:0}
+  aside{display:contents}
+  aside h4{display:none}
+  #steps{position:sticky;top:0;z-index:6;margin:0 -12px 8px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  #steps::-webkit-scrollbar,#cek::-webkit-scrollbar{display:none}
+  #steps li{flex:none;margin:0;padding:9px 14px;border-radius:99px;background:#fff;border:1px solid var(--line);font-size:.9rem}
+  #steps li.on{border-color:var(--pri);color:var(--pri);box-shadow:none}
+  #cek{display:flex;gap:6px;overflow-x:auto;margin:0 0 10px;scrollbar-width:none}
+  #cek li{flex:none;gap:8px;margin:0;padding:5px 10px;border-radius:99px;font-size:.82rem}
+  .card{padding:16px;border-radius:14px}
+  h2{font-size:1.25rem}
+  .blk{padding:12px}
+  button,label.filebtn{min-height:44px}
+  .row{flex-wrap:wrap}
+  .row>input,.row>select,.row>textarea{flex:1 1 150px;min-width:0}
+  .row>input[type=number]{flex:0 0 110px}
+  .row>div[style]{flex:1 1 100%!important}
+  .row .x{flex:none;margin-left:auto}
+  .nav{position:sticky;bottom:0;z-index:6;margin:8px -12px 0;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--line)}
+  .nav span{font-size:.8rem;text-align:center}
+  .rbm,.rbm tbody,.rbm tr,.rbm td{display:block;width:100%}
+  .rbm tr:first-child{display:none}
+  .rbm tr{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:#fafafa}
+  .rbm td{padding:4px 0;min-width:0!important}
+  .rbm td[data-l]::before{content:attr(data-l);display:block;margin-bottom:2px;font-size:.78rem;font-weight:700;color:var(--mut)}
+  .rbm td:last-child{text-align:right}
+}
+@media(max-width:820px){.hr button{white-space:nowrap;padding:9px 14px}}
