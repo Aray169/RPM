@@ -200,7 +200,7 @@ body[data-v="list"] #newTop{display:none}
   header{padding:8px 14px}
   .brand small,#topnav,.newtop,.acctbtn #whoName,.car{display:none}
   .acctbtn{padding:3px}
-  body[data-v="editor"] header{display:none}
+  body[data-v="editor"] header{position:static;padding:6px 12px}
   .loginpage{grid-template-columns:1fr;grid-template-rows:auto 1fr;min-height:100vh}
   .lp-hero{padding:36px 24px 72px;gap:14px}
   .lp-hero h1{font-size:1.45rem}
@@ -231,3 +231,9 @@ body[data-v="list"] #newTop{display:none}
   .lp-points li{padding-left:28px}
 }
 .linkb{min-height:0!important;display:inline;font:inherit;font-weight:600;padding:0!important;line-height:inherit}
+
+/* layar pemuatan saat aplikasi dibuka atau dimuat ulang */
+#splash{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--mut)}
+#splash p{margin:0}
+.spin{width:36px;height:36px;border:4px solid #e5e7eb;border-top-color:var(--pri);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
