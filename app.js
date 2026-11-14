@@ -326,7 +326,7 @@ function render(top) {
   $('pos').textContent = 'Langkah ' + (cur + 1) + ' dari ' + STEPS.length; $('pos').dataset.s = (cur + 1) + '/' + STEPS.length;
   $('prev').disabled = cur === 0; $('next').disabled = cur === STEPS.length - 1;
   $('cekH').textContent = um() ? 'Cek kelengkapan' : 'Cek keterpaduan';
-  cek(); if (top) window.scrollTo(0, 0); if (STEPS[cur][0] === 'Lampiran') listLamp();
+  saveNav(); cek(); if (top) window.scrollTo(0, 0); if (STEPS[cur][0] === 'Lampiran') listLamp();
 }
 function del(p, i) {
   const a = g(D, p);
@@ -370,18 +370,27 @@ $('steps').onclick = e => { const li = e.target.closest('li'); if (li) { cur = +
 $('prev').onclick = () => { cur--; render(true); };
 $('next').onclick = () => { cur++; render(true); };
 /* ---------- layar: masuk, daftar RPM, editor ---------- */
+/* halaman terakhir diingat agar muat ulang atau tab tertutup tidak mengembalikan ke daftar */
+const NAVKEY = 'rpm_nav_v1';
+function saveNav() {
+  if (!USER) return;
+  const v = document.body.dataset.v;
+  if (v !== 'editor' && v !== 'list' && v !== 'profil') return;
+  try { localStorage.setItem(NAVKEY, JSON.stringify({ uid: USER.uid, v, id: v === 'editor' ? curId : null, cur, tab: listFilter })); } catch (e) {}
+}
+function bacaNav(uid) { try { const n = JSON.parse(localStorage.getItem(NAVKEY)); return n && n.uid === uid ? n : null; } catch (e) { return null; } }
 function closeMenu() { const m = $('acctMenu'); if (m) m.hidden = true; }
 function setView(v) {
   document.body.dataset.v = v;
-  $('login').hidden = !(v === 'login' || v === 'boot');
+  $('login').hidden = v !== 'login';
+  $('splash').hidden = v !== 'boot';
   $('listv').hidden = v !== 'list';
   $('profilv').hidden = v !== 'profil';
   $('edbar').hidden = v !== 'editor';
   $('editor').hidden = v !== 'editor';
-  if (v === 'boot') { $('bootMsg').hidden = false; $('loginBox').hidden = true; }
   const aktif = v === 'list' ? 'list' : v === 'profil' ? 'profil' : '';
   document.querySelectorAll('[data-go]').forEach(x => x.classList.toggle('on', x.dataset.go === aktif));
-  closeMenu(); window.scrollTo(0, 0);
+  closeMenu(); saveNav(); window.scrollTo(0, 0);
 }
 let toastT;
 function toast(m) { const t = $('toast'); if (!t || !t.classList) return; t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800); }
@@ -400,7 +409,7 @@ function pesanLogin(e) {
 async function onAuth(u) {
   if (!u) {
     USER = null; PR = {}; D = normalize(null); curId = null; DAFTAR = [];
-    $('bootMsg').hidden = true; $('loginBox').hidden = false; $('loginMsg').textContent = '';
+    $('loginMsg').textContent = '';
     return setView('login');
   }
   USER = u;
@@ -410,6 +419,12 @@ async function onAuth(u) {
   const ln = $('localNote'); ln.hidden = !u.local;
   ln.textContent = Repo.fallback || 'Mode lokal: RPM tersimpan di perangkat ini saja. Untuk masuk dengan Google dan menyimpan ke akun, buka versi web aplikasi.';
   try { await migrateLegacy(); } catch (e) { console.error(e); }
+  const nav = bacaNav(u.uid);
+  if (nav) {
+    listFilter = ['semua', 'draft', 'selesai'].includes(nav.tab) ? nav.tab : 'semua';
+    if (nav.v === 'editor' && nav.id && await openRpm(nav.id, nav.cur, true)) return;
+    if (nav.v === 'profil') return showProfil();
+  }
   showList();
 }
 
@@ -466,12 +481,13 @@ function prefillProfil(d) {
   if (p.nipk) d.ttd.nipk = p.nipk;
 }
 function newRpm() { D = blank(); prefillProfil(D); curId = Repo.newId(); curStatus = 'draft'; curCreated = Date.now(); curPersisted = false; baseSnap = null; cur = 0; dirty = false; showEditor(); }
-async function openRpm(id) {
+async function openRpm(id, step, diam) {
   try {
-    const r = await Repo.get(id); if (!r) return toast('RPM tidak ditemukan.');
+    const r = await Repo.get(id); if (!r) { if (!diam) toast('RPM tidak ditemukan.'); return false; }
     D = normalize(JSON.parse(r.data)); curId = id; curStatus = r.meta.status === 'selesai' ? 'selesai' : 'draft';
-    curCreated = r.meta.createdAt || Date.now(); curPersisted = true; baseSnap = null; cur = 0; dirty = false; showEditor();
-  } catch (e) { console.error(e); toast('Gagal membuka RPM.'); }
+    curCreated = r.meta.createdAt || Date.now(); curPersisted = true; baseSnap = null; dirty = false;
+    cur = step >= 0 && step < STEPS.length ? step : 0; showEditor(); return true;
+  } catch (e) { console.error(e); if (!diam) toast('Gagal membuka RPM.'); return false; }
 }
 async function dupRpm(id) {
   try {
@@ -552,8 +568,8 @@ function bacaFoto(f) {
   r.readAsDataURL(f);
 }
 
-$('gLogin').onclick = async () => { $('loginMsg').textContent = ''; try { await Repo.signIn(); } catch (e) { console.error(e); $('loginMsg').textContent = pesanLogin(e); } };
-$('logout').onclick = async () => { await sync(); try { await Repo.signOut(); } catch (e) { console.error(e); toast('Gagal keluar.'); } };
+$('gLogin').onclick = async () => { $('loginMsg').textContent = ''; localStorage.removeItem(NAVKEY); try { await Repo.signIn(); } catch (e) { console.error(e); $('loginMsg').textContent = pesanLogin(e); } };
+$('logout').onclick = async () => { await sync(); localStorage.removeItem(NAVKEY); try { await Repo.signOut(); } catch (e) { console.error(e); toast('Gagal keluar.'); } };
 $('acctBtn').onclick = e => { e.stopPropagation(); const m = $('acctMenu'); m.hidden = !m.hidden; };
 document.addEventListener('click', e => {
   if (!e.target.closest('.acct')) closeMenu();
@@ -571,7 +587,7 @@ $('saveDraft').onclick = async () => {
 };
 $('listv').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.tab) { listFilter = b.dataset.tab; return drawList(); }
+  if (b.dataset.tab) { listFilter = b.dataset.tab; saveNav(); return drawList(); }
   const id = b.dataset.id, a = b.dataset.act;
   if (a === 'open') return openRpm(id);
   if (a === 'dlrpm') return dlRpm(id, b);
