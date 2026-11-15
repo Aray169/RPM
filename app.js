@@ -31,7 +31,7 @@ const KEGT = { awal: ['A. Kegiatan Awal', 'wAwal'], inti: ['B. Kegiatan Inti', '
 
 const blankK = k => ({ tipe: kv(KEG[k][0]), manual: '', detail: '' });
 const blankC = () => ({ k: '', akt: '' });
-const blankP = n => ({ ke: n, jp: '2 JP', mJP: '40', wAwal: '', wInti: '', wPenutup: '', awal: [blankK('awal')], inti: [blankK('inti')], penutup: [blankK('penutup')], tp: [], ket: [], ketL: [''], rep: [], repL: [''], aks: [], aksL: [''], dupCat: '', casel: [blankC()] });
+const blankP = n => ({ ke: String(n), model: '', mver: '', jp: '2 JP', mJP: '40', wAwal: '', wInti: '', wPenutup: '', awal: [blankK('awal')], inti: [blankK('inti')], penutup: [blankK('penutup')], tp: [], ket: [], ketL: [''], rep: [], repL: [''], aks: [], aksL: [''], dupCat: '', casel: [blankC()] });
 const blankL = () => ({ waktu: WAKTU[0], jenis: 'Pertanyaan Pemantik', manual: '', detail: '', tp: [], cara: [], caraL: [''] });
 const blankR = () => ({ tp: '', k: '', l: ['', '', '', ''] });
 const blankS = () => ({ k: '', ind: '', nilai: 'Observasi' });
@@ -43,7 +43,7 @@ const blank = () => ({
   kenal: { awal: '', minat: '', emosi: '', kebutuhan: [{ tipe: '', manual: '', ket: '' }], materi: '', hambatan: '', dpl: [] },
   tuj: { cp: [''], tp: [''], abadi: '', esensial: [''], kunciP: '', kunciK: '', selTuju: [], lintas: [{ mapel: '', ket: '' }], sdgs: [{ sdg: SDG[0], ket: '' }] },
   bukti: { tugas: { nama: '', desk: '', rubrik: [blankR()] }, lain: [blankL()], sel: [blankS()] },
-  pend: { model: [''], mindful: '', meaningful: '', joyful: '', metode: [''], mitra: [blankM()], fisik: [{ nama: '', suasana: '' }], budaya: [''], tpack: [{ alat: '', manual: '', ket: '' }] },
+  pend: { model: [], modelL: [''], pendukung: [], pendukungL: [''], mindful: '', meaningful: '', joyful: '', metode: [''], mitra: [blankM()], fisik: [{ nama: '', suasana: '' }], budaya: [''], tpack: [{ alat: '', manual: '', ket: '' }] },
   ped: [blankP(1)],
   ttd: { kota: '', tgl: '', kepsek: '', nipk: '', guru: '', nipg: '' }
 });
@@ -59,18 +59,73 @@ const g = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const st = (o, p, v) => { const k = p.split('.'), l = k.pop(); k.reduce((a, x) => a[x], o)[l] = v; };
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+const APP_INFO = { versi: '3.2.0', pengembang: 'Ariesta Vandera', kontak: '' }; /* isi kontak (misalnya nomor WhatsApp atau tautan formulir) agar tampil di halaman Tentang */
 let D, cur = 0, curId = null, curStatus = 'draft', curCreated = 0, dirty = false, syncT = null, USER = null, DAFTAR = [], listFilter = 'semua', PR = {}, curPersisted = false, baseSnap = null, fotoBaru;
+/* ---------- katalog model dan sintaks ---------- */
+const PENDUKUNG = ['Berpusat pada murid', 'Kontekstual', 'Berdiferensiasi', 'Pengajaran sesuai tingkat capaian (TaRL)', 'Saintifik', 'Kolaboratif', 'Pembelajaran sosial emosional'];
+const MODELS = () => [...KATALOG, ...((PR && PR.modelku) || []).map(m => ({ id: 'u:' + m.id, nama: m.nama, grup: 'Model saya', versi: [{ id: 'v1', acuan: 'dibuat oleh guru', label: 'Versi saya', fase: m.fase }] }))];
+const findModel = id => (id ? MODELS().find(m => m.id === id) || null : null);
+const versiOf = (m, id) => m.versi.find(x => x.id === id) || m.versi[0];
+const BAGIAN = ['awal', 'inti', 'penutup'];
+/* seberapa banyak fase sintaks yang sudah ada sebagai blok kegiatan; hanya informasi, bukan penilaian */
+function covOf(p, v) {
+  const ada = new Set(BAGIAN.flatMap(k => p[k].filter(x => x.fase).map(x => x.fase)));
+  const hilang = v.fase.filter(f => !ada.has(f.n)).map(f => f.n);
+  return { total: v.fase.length, ada: v.fase.length - hilang.length, hilang, terpasang: ada.size > 0 };
+}
+const grupChips = path => {
+  const gr = {}; MODELS().forEach(m => { (gr[m.grup] = gr[m.grup] || []).push(m.nama); });
+  return Object.entries(gr).map(([k, v]) => `<p class="hint" style="margin:10px 0 4px"><b>${esc(k)}</b></p>${CHK(path, v)}`).join('');
+};
+function modelBlok(p, i) {
+  const m = findModel(p.model), v = m ? versiOf(m, p.mver) : null, dipilih = new Set(D.pend.model || []);
+  const grup = {}; MODELS().forEach(x => { (grup[x.grup] = grup[x.grup] || []).push(x); });
+  const opsi = `<option value="">Bebas (tanpa sintaks)</option>` + Object.entries(grup).map(([k, arr]) => `<optgroup label="${esc(k)}">${arr.map(x => `<option value="${esc(x.id)}" ${p.model === x.id ? 'selected' : ''}>${dipilih.has(x.nama) ? '✓ ' : ''}${esc(x.nama)}</option>`).join('')}</optgroup>`).join('');
+  const cov = m ? covOf(p, v) : null;
+  return `<div class="blk" style="--c:var(--pri)"><h4>Model pembelajaran pertemuan ini</h4>
+    <div class="row"><select data-p="ped.${i}.model" data-r="1">${opsi}</select></div>
+    ${m && m.versi.length > 1 ? `<div class="row"><select data-p="ped.${i}.mver" data-r="1">${m.versi.map(x => `<option value="${esc(x.id)}" ${v.id === x.id ? 'selected' : ''}>${esc(x.label || 'Acuan: ' + x.acuan)}</option>`).join('')}</select></div>` : ''}
+    ${m ? `<p class="hint">Acuan sintaks: ${esc(v.acuan)}. ${esc(m.catatan || '')} Blok sintaks hanyalah kerangka: ubah, tambah, atau hapus sesuai kebutuhan Anda.</p>
+      <div class="row" style="align-items:center"><button class="add" data-act="pasang" data-i="${i}" type="button">Pasang sintaks</button><span class="hint">${cov.terpasang ? `Fase terpetakan ${cov.ada}/${cov.total}${cov.hilang.length ? ' · belum ada: ' + esc(cov.hilang.join(', ')) : ''}` : 'Belum dipasang.'}</span></div>` : '<p class="hint">Pilih model untuk melihat sintaks acuannya, atau biarkan bebas. Model yang dipilih ✓ berasal dari langkah Pendekatan.</p>'}
+  </div>`;
+}
+/* memasang fase sintaks sebagai blok kegiatan; blok yang sudah ditulis guru tidak disentuh */
+function pasangSintaks(i) {
+  const p = D.ped[i], m = findModel(p.model); if (!m) return;
+  const v = versiOf(m, p.mver); p.mver = v.id;
+  const nama = new Set(v.fase.map(f => f.n));
+  BAGIAN.forEach(k => {
+    p[k] = p[k].filter(x => !(x.fase && !String(x.detail).trim()));
+    p[k].forEach(x => { if (x.fase && !nama.has(x.fase)) { delete x.fase; delete x.hint; } });
+  });
+  const ada = new Set(BAGIAN.flatMap(k => p[k].filter(x => x.fase).map(x => x.fase)));
+  BAGIAN.forEach(k => {
+    const baru = v.fase.filter(f => f.b === k && !ada.has(f.n)).map(f => ({ tipe: 'Lainnya', manual: f.n, detail: '', fase: f.n, hint: f.p || '' }));
+    if (!baru.length) { if (!p[k].length) p[k] = [blankK(k)]; return; }
+    const polos = p[k].length === 1 && !p[k][0].fase && p[k][0].tipe === kv(KEG[k][0]) && !String(p[k][0].manual).trim() && !String(p[k][0].detail).trim();
+    p[k] = (polos ? [] : p[k]).concat(baru);
+  });
+  save(); render(); toast('Sintaks "' + m.nama + '" dipasang. Isi detail tiap blok sesuai kebutuhan.');
+}
+
 /* merapikan data RPM, termasuk data versi lama */
 function normalize(d) {
   if (!d || !d.ped || !d.tuj || d.tuj.kunciP === undefined) d = blank();
   if (d.mode === undefined) d.mode = 'terpadu'; /* data lama tetap memakai mode lengkap */
   d.bukti.lain.forEach(x => { if (!Array.isArray(x.caraL)) x.caraL = [String(x.caraLain || '')]; });
   d.ped.forEach(q => [['ket', 'ketLain'], ['rep', 'repLain'], ['aks', 'aksLain']].forEach(([k, o]) => { if (!Array.isArray(q[k + 'L'])) q[k + 'L'] = [String(q[o] || '')]; }));
+  if (!Array.isArray(d.pend.modelL)) {
+    const baku = new Set(MODELS().map(m => m.nama)), semua = d.pend.model.filter(x => String(x).trim());
+    d.pend.model = semua.filter(x => baku.has(x)); d.pend.modelL = semua.filter(x => !baku.has(x)); if (!d.pend.modelL.length) d.pend.modelL = [''];
+  }
+  if (!Array.isArray(d.pend.pendukung)) d.pend.pendukung = [];
+  if (!Array.isArray(d.pend.pendukungL)) d.pend.pendukungL = [''];
+  d.ped.forEach(q => { q.ke = String(q.ke); if (q.model === undefined) q.model = ''; if (q.mver === undefined) q.mver = ''; });
   return d;
 }
 D = normalize(null);
 const um = () => D.mode === 'umum';
-const NAMA_UMUM = [null, null, 'Tujuan Pembelajaran', 'Asesmen', 'Kegiatan Pembelajaran'];
+const NAMA_UMUM = [null, null, 'Tujuan Pembelajaran', 'Asesmen', null, 'Kegiatan Pembelajaran'];
 let lampN = 0; /* jumlah lampiran tersimpan, ditampilkan pada nama langkah */
 const sn = i => { const b = (um() && NAMA_UMUM[i]) || STEPS[i][0]; return b === 'Lampiran' && lampN ? b + ' (' + lampN + ')' : b; };
 const jam = () => new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -148,13 +203,25 @@ const STEPS = [
     ${ADDB('bukti.lain', '+ Tambah asesmen')}
     ${um() ? '' : `<h3>C. Penilaian sosial emosional (CASEL)</h3><p class="hint">Tiap kompetensi yang dituju perlu punya indikator dan cara menilai.</p>
     ${D.bukti.sel.map((x, i) => `<div class="blk" style="--c:var(--sel)"><div class="row">${SO(`bukti.sel.${i}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL('bukti.sel', i)}</div>${TA(`bukti.sel.${i}.ind`, 'Indikator perilaku yang diamati. Contoh: murid memberi semangat pada rekan yang belum berhasil')}${S('Cara menilai', `bukti.sel.${i}.nilai`, NILAI)}</div>`).join('')}${ADDB('bukti.sel', '+ Tambah penilaian CASEL')}`}</div>`; }],
+  ['Pendekatan dan Lingkungan', () => `<div class="card">${head('Pendekatan dan Lingkungan', 'Model, metode, kemitraan, dan lingkungan belajar yang mendukung rancangan.')}
+    <h3>Model pembelajaran</h3><p class="hint">Pilih model yang akan dipakai. Sintaksnya dipasang di langkah Kegiatan, per pertemuan, dan bisa Anda ubah. Model buatan sendiri ditambahkan di halaman Profil.</p>
+    ${grupChips('pend.model')}${LAINL('pend.modelL', 'Model lain: tulis nama (opsional)')}
+    <h3>Pendekatan pembelajaran</h3><p class="hint">Pendekatan utama adalah Pembelajaran Mendalam (berkesadaran, bermakna, menggembirakan). Tambahkan pendekatan pendukung bila ada.</p>
+    ${CHK('pend.pendukung', PENDUKUNG)}${LAINL('pend.pendukungL', 'Pendekatan lain: tulis nama (opsional)')}
+    <h3>Prinsip Deep Learning</h3><div class="g3">${F('Mindful learning', 'pend.mindful', { area: 3, ph: 'Contoh: Murid fokus dan sadar pada proses belajarnya' })}${F('Meaningful learning', 'pend.meaningful', { area: 3, ph: 'Contoh: Materi dikaitkan dengan kehidupan sehari-hari murid' })}${F('Joyful learning', 'pend.joyful', { area: 3, ph: 'Contoh: Kegiatan berupa permainan atau tantangan yang menyenangkan' })}</div>
+    ${LIST('Metode pembelajaran', 'pend.metode', 'Contoh: Diskusi, Tanya Jawab')}
+    <div class="f"><span>Kemitraan pembelajaran<i title="Pihak di luar guru dan murid yang diajak ikut mendukung pembelajaran, misalnya orang tua, komunitas, pakar, atau lembaga.">ⓘ</i></span>${D.pend.mitra.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.mitra.${i}.jenis`, MIT, 1)}${DEL('pend.mitra', i)}</div>${x.jenis === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.mitra.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis jenis mitra...">` : ''}<input style="margin-bottom:6px" data-p="pend.mitra.${i}.nama" value="${esc(x.nama)}" placeholder="Nama atau keterangan mitra">${TA(`pend.mitra.${i}.peran`, 'Peran mitra dalam pembelajaran...')}</div>`).join('')}${ADDB('pend.mitra', '+ Mitra')}</div>
+    <div class="f"><span>Ruang fisik</span>${D.pend.fisik.map((x, i) => `<div class="row"><input data-p="pend.fisik.${i}.nama" value="${esc(x.nama)}" placeholder="Nama ruangan"><input data-p="pend.fisik.${i}.suasana" value="${esc(x.suasana)}" placeholder="Suasana atau kondisi">${DEL('pend.fisik', i)}</div>`).join('')}${ADDB('pend.fisik', '+ Ruang fisik')}</div>
+    ${LIST('Budaya belajar', 'pend.budaya', 'Contoh: Budaya saling menghormati')}
+    <div class="f"><span>Integrasi TPACK / digital</span>${D.pend.tpack.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.tpack.${i}.alat`, TPK, 1)}${DEL('pend.tpack', i)}</div>${x.alat === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.tpack.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis alat manual...">` : ''}${TA(`pend.tpack.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('pend.tpack', '+ Alat digital')}</div></div>`],
   ['Tahap 3: Pengalaman Belajar', () => `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 3</span>'}${um() ? head('Kegiatan Pembelajaran', 'Rancang kegiatan belajar untuk tiap pertemuan.') : head('Pengalaman Belajar', 'Rancang kegiatan yang mengantar murid ke bukti di Tahap 2, sambil menyisipkan DUP dan CASEL.')}</div>
     ${D.ped.map((p, i) => { const w = wInfo(p); return `<div class="card"><h3 style="margin-top:0">Pertemuan ${i + 1}</h3>
     <div class="g3 tri">${S('Pertemuan ke-', `ped.${i}.ke`, [1, 2, 3, 4, 5, 6, 7, 8].map(String))}${S('Alokasi JP', `ped.${i}.jp`, JP, 1)}${F('Menit per JP', `ped.${i}.mJP`, { type: 'number', min: 1 })}</div>
     <p class="hint" id="tot${i}" style="margin-top:-6px">${w.tot}</p>
     <label class="f"><span>TP yang dituju</span></label>${CHK(`ped.${i}.tp`, tpOpts())}
+    ${modelBlok(p, i)}
     ${Object.keys(KEGT).map(k => `<div class="blk" style="--c:var(--ubd)"><div class="row"><h4 style="flex:1">${KEGT[k][0]}</h4><input type="number" min="0" style="max-width:110px" data-p="ped.${i}.${KEGT[k][1]}" value="${esc(g(D, `ped.${i}.${KEGT[k][1]}`))}" placeholder="0"><span class="unit">menit</span></div>
-      ${p[k].map((x, j) => `<div class="row" style="align-items:flex-start"><div style="flex:1">${SO(`ped.${i}.${k}.${j}.tipe`, KEG[k], 1)}${MAN(`ped.${i}.${k}.${j}`)}</div><div style="flex:3"><textarea rows="2" data-p="ped.${i}.${k}.${j}.detail" placeholder="Detail langkah...">${esc(x.detail)}</textarea></div>${DEL(`ped.${i}.${k}`, j)}</div>`).join('')}${ADDB(`ped.${i}.${k}`, '+ Sub-kegiatan')}</div>`).join('')}
+      ${p[k].map((x, j) => `<div class="row" style="align-items:flex-start"><div style="flex:1">${x.fase ? '<span class="fasebadge">Sintaks</span>' : ''}${SO(`ped.${i}.${k}.${j}.tipe`, KEG[k], 1)}${MAN(`ped.${i}.${k}.${j}`)}</div><div style="flex:3"><textarea rows="2" data-p="ped.${i}.${k}.${j}.detail" placeholder="${esc(x.hint || 'Detail langkah...')}">${esc(x.detail)}</textarea></div>${DEL(`ped.${i}.${k}`, j)}</div>`).join('')}${ADDB(`ped.${i}.${k}`, '+ Sub-kegiatan')}</div>`).join('')}
     <p class="${w.cls}" id="wm${i}">${w.msg}</p>
     ${um() ? '' : `${Object.keys(DUP).map(k => `<div class="blk" style="--c:var(--dup)"><span class="tag t-dup">DUP</span><h4>${DUP[k].t}</h4><p>${DUP[k].q}</p>${CHK(`ped.${i}.${k}`, DUP[k].o)}${LAINL(`ped.${i}.${k}L`, 'Lainnya: tulis strategi sendiri (opsional)')}</div>`).join('')}
     ${F('Catatan strategi DUP lain', `ped.${i}.dupCat`, { area: 2, ph: 'Rincian pelaksanaan strategi DUP yang dipilih' })}
@@ -162,14 +229,6 @@ const STEPS = [
     ${p.casel.map((c, j) => `<div class="blk" style="--c:var(--sel);background:#fff"><div class="row">${SO(`ped.${i}.casel.${j}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL(`ped.${i}.casel`, j)}</div>${TA(`ped.${i}.casel.${j}.akt`, 'Aktivitas. Contoh: check-in perasaan di pembuka, kerja kelompok bergilir, refleksi penutup')}</div>`).join('')}${ADDB(`ped.${i}.casel`, '+ CASEL')}</div>`}
     ${D.ped.length > 1 ? `<button class="x" data-del="ped:${i}">Hapus pertemuan ini</button>` : ''}</div>`; }).join('')}
     ${ADDB('ped', '+ Tambah pertemuan')}`],
-  ['Pendekatan dan Lingkungan', () => `<div class="card">${head('Pendekatan dan Lingkungan', 'Model, metode, kemitraan, dan lingkungan belajar yang mendukung rancangan.')}
-    ${LIST('Model pembelajaran', 'pend.model', 'Contoh: Problem Based Learning')}
-    <h3>Prinsip Deep Learning</h3><div class="g3">${F('Mindful learning', 'pend.mindful', { area: 3, ph: 'Contoh: Murid fokus dan sadar pada proses belajarnya' })}${F('Meaningful learning', 'pend.meaningful', { area: 3, ph: 'Contoh: Materi dikaitkan dengan kehidupan sehari-hari murid' })}${F('Joyful learning', 'pend.joyful', { area: 3, ph: 'Contoh: Kegiatan berupa permainan atau tantangan yang menyenangkan' })}</div>
-    ${LIST('Metode pembelajaran', 'pend.metode', 'Contoh: Diskusi, Tanya Jawab')}
-    <div class="f"><span>Kemitraan pembelajaran<i title="Pihak di luar guru dan murid yang diajak ikut mendukung pembelajaran, misalnya orang tua, komunitas, pakar, atau lembaga.">ⓘ</i></span>${D.pend.mitra.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.mitra.${i}.jenis`, MIT, 1)}${DEL('pend.mitra', i)}</div>${x.jenis === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.mitra.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis jenis mitra...">` : ''}<input style="margin-bottom:6px" data-p="pend.mitra.${i}.nama" value="${esc(x.nama)}" placeholder="Nama atau keterangan mitra">${TA(`pend.mitra.${i}.peran`, 'Peran mitra dalam pembelajaran...')}</div>`).join('')}${ADDB('pend.mitra', '+ Mitra')}</div>
-    <div class="f"><span>Ruang fisik</span>${D.pend.fisik.map((x, i) => `<div class="row"><input data-p="pend.fisik.${i}.nama" value="${esc(x.nama)}" placeholder="Nama ruangan"><input data-p="pend.fisik.${i}.suasana" value="${esc(x.suasana)}" placeholder="Suasana atau kondisi">${DEL('pend.fisik', i)}</div>`).join('')}${ADDB('pend.fisik', '+ Ruang fisik')}</div>
-    ${LIST('Budaya belajar', 'pend.budaya', 'Contoh: Budaya saling menghormati')}
-    <div class="f"><span>Integrasi TPACK / digital</span>${D.pend.tpack.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.tpack.${i}.alat`, TPK, 1)}${DEL('pend.tpack', i)}</div>${x.alat === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.tpack.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis alat manual...">` : ''}${TA(`pend.tpack.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('pend.tpack', '+ Alat digital')}</div></div>`],
   ['Pengesahan', () => `<div class="card">${head('Pengesahan', 'Data untuk blok tanda tangan.')}<div class="g2">${F('Kota atau kabupaten', 'ttd.kota', { ph: 'Semarang' })}${F('Tanggal dokumen', 'ttd.tgl', { type: 'date' })}${F('Kepala sekolah', 'ttd.kepsek')}${F('NIP kepala sekolah', 'ttd.nipk', { ph: 'Nomor NIP saja' })}${F('Guru mata pelajaran', 'ttd.guru')}${F('NIP guru', 'ttd.nipg', { ph: 'Nomor NIP saja' })}</div></div>`],
   ['Lampiran', () => `<div class="card">${head('Lampiran (.docx)', 'Berkas yang diunggah di sini digabungkan di akhir dokumen saat diunduh.')}
     <label class="f"><span>Judul lampiran (opsional, isi sebelum memilih berkas)</span><input id="judulLamp" placeholder="Contoh: LKPD 1"></label>
@@ -341,6 +400,7 @@ $('view').oninput = e => {
   const t = e.target; if (!t.dataset.p) return;
   st(D, t.dataset.p, t.value);
   if (/^bukti\.lain\.\d+\.waktu$/.test(t.dataset.p)) st(D, t.dataset.p.replace('.waktu', '.jenis'), kv(JENISW[t.value][0]));
+  if (/^ped\.\d+\.model$/.test(t.dataset.p)) st(D, t.dataset.p.replace('.model', '.mver'), '');
   save();
   const m = t.dataset.p.match(/^ped\.(\d+)\.(mJP|wAwal|wInti|wPenutup)$/); if (m) updWaktu(+m[1]);
   if (t.dataset.r || t.dataset.p === 'id.kelas') render(); else cek();
@@ -362,6 +422,7 @@ $('view').onclick = async e => {
   if (a === 'rmcover') { D.cover = null; save(); return render(); }
   if (a === 'addlamp') return addLamp();
   if (a === 'dellamp') { if (!db) return; db.transaction('lampiran', 'readwrite').objectStore('lampiran').delete(+b.dataset.id).onsuccess = listLamp; return; }
+  if (a === 'pasang') return pasangSintaks(+b.dataset.i);
   if (b.dataset.add) { g(D, b.dataset.add).push(mk(b.dataset.add)); save(); render(); }
   if (b.dataset.del) { const [p, i] = b.dataset.del.split(':'); del(p, +i); save(); render(); }
 };
@@ -381,11 +442,12 @@ function saveNav() {
 function bacaNav(uid) { try { const n = JSON.parse(localStorage.getItem(NAVKEY)); return n && n.uid === uid ? n : null; } catch (e) { return null; } }
 function closeMenu() { const m = $('acctMenu'); if (m) m.hidden = true; }
 function setView(v) {
-  document.body.dataset.v = v;
+  document.body.dataset.v = v; document.body.classList.toggle('anon', !USER);
   $('login').hidden = v !== 'login';
   $('splash').hidden = v !== 'boot';
   $('listv').hidden = v !== 'list';
   $('profilv').hidden = v !== 'profil';
+  $('tentangv').hidden = v !== 'tentang';
   $('edbar').hidden = v !== 'editor';
   $('editor').hidden = v !== 'editor';
   const aktif = v === 'list' ? 'list' : v === 'profil' ? 'profil' : '';
@@ -526,11 +588,45 @@ async function go(w) {
   if (document.body.dataset.v === 'editor') { await sync(); if (dirty) return toast('Belum tersimpan. Periksa koneksi lalu coba lagi.'); }
   if (w === 'list') return showList();
   if (w === 'profil') return showProfil();
+  if (w === 'tentang') return showTentang();
   if (w === 'new') return newRpm();
 }
 const keDaftar = () => go('list');
 
 /* ---------- profil guru ---------- */
+/* ---------- Tentang dan Bantuan ---------- */
+function showTentang() {
+  setView('tentang');
+  $('tentangVer').textContent = 'versi ' + APP_INFO.versi;
+  $('tentangDev').innerHTML = 'Dikembangkan oleh <b>' + esc(APP_INFO.pengembang) + '</b>.' + (APP_INFO.kontak ? ' Masukan dan laporan masalah: ' + esc(APP_INFO.kontak) + '.' : ' Saat melaporkan masalah, sebutkan nomor versi di atas.');
+  $('katTabel').innerHTML = KATALOG.map(m => { const v = m.versi[0]; return `<details><summary>${esc(m.nama)} <span class="kacuan">· acuan: ${esc(v.acuan)} · ${v.fase.length} fase</span></summary><ol>${v.fase.map(f => `<li>${esc(f.n)}</li>`).join('')}</ol>${m.catatan ? `<p class="hint">${esc(m.catatan)}</p>` : ''}</details>`; }).join('');
+}
+$('tentangBack').onclick = () => { if (USER) showList(); else setView('login'); };
+
+/* ---------- model buatan guru (halaman Profil) ---------- */
+let MK = [];
+function drawMK() {
+  $('mkList').innerHTML = MK.length ? MK.map((m, i) => `<div class="blk" style="--c:var(--pri)">
+    <div class="row"><input data-mk="${i}.nama" value="${esc(m.nama)}" placeholder="Nama model, misalnya Model Saya"><button class="x" type="button" data-mkdel="${i}">Hapus model</button></div>
+    ${m.fase.map((f, j) => `<div class="row"><select data-mk="${i}.fase.${j}.b">${[['awal', 'Kegiatan awal'], ['inti', 'Kegiatan inti'], ['penutup', 'Kegiatan penutup']].map(([v, l]) => `<option value="${v}" ${f.b === v ? 'selected' : ''}>${l}</option>`).join('')}</select><input data-mk="${i}.fase.${j}.n" value="${esc(f.n)}" placeholder="Nama fase ${j + 1}"><button class="x" type="button" data-mkfdel="${i}.${j}">×</button></div>`).join('')}
+    <button class="add" type="button" data-mkfadd="${i}">+ Fase</button></div>`).join('') : '<p class="hint">Belum ada model buatan Anda.</p>';
+}
+function bersihkanMK() {
+  const baku = new Set(KATALOG.map(k => k.nama.toLowerCase()));
+  return MK.map((m, i) => {
+    let nama = String(m.nama || '').trim(); if (nama && baku.has(nama.toLowerCase())) nama += ' (saya)';
+    return { id: m.id || ('m' + Date.now().toString(36) + i), nama, fase: m.fase.map(f => ({ n: String(f.n || '').trim(), b: BAGIAN.includes(f.b) ? f.b : 'inti', p: String(f.p || '').trim() })).filter(f => f.n) };
+  }).filter(m => m.nama && m.fase.length);
+}
+$('mkAdd').onclick = () => { MK.push({ id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), nama: '', fase: [{ n: '', b: 'inti' }] }); drawMK(); };
+const mkIn = e => { const t = e.target; if (t.dataset && t.dataset.mk) st(MK, t.dataset.mk, t.value); };
+$('mkList').oninput = mkIn; $('mkList').onchange = mkIn;
+$('mkList').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.mkdel) { MK.splice(+b.dataset.mkdel, 1); drawMK(); }
+  else if (b.dataset.mkfadd) { MK[+b.dataset.mkfadd].fase.push({ n: '', b: 'inti' }); drawMK(); }
+  else if (b.dataset.mkfdel) { const [i, j] = b.dataset.mkfdel.split('.').map(Number); if (MK[i].fase.length > 1) MK[i].fase.splice(j, 1); drawMK(); }
+};
 const PF = ['nama', 'nip', 'mapel', 'sekolah', 'kota', 'kepsek', 'nipk'];
 function drawAvatar(el, foto, nama) { el.innerHTML = foto ? `<img alt="" src="${esc(foto)}">` : esc(((nama || '?').trim().charAt(0) || '?').toUpperCase()); }
 function applyHeader() {
@@ -540,7 +636,7 @@ function applyHeader() {
   drawAvatar($('avTop'), PR.foto || (USER && USER.photo) || '', nm);
 }
 function showProfil() {
-  setView('profil'); fotoBaru = undefined;
+  setView('profil'); fotoBaru = undefined; MK = JSON.parse(JSON.stringify(PR.modelku || [])); drawMK();
   PF.forEach(k => { $('pf-' + k).value = PR[k] || ''; });
   drawAvatar($('avBig'), PR.foto || (USER && USER.photo) || '', PR.nama || (USER && USER.name) || '');
   $('profMsg').textContent = '';
@@ -548,8 +644,9 @@ function showProfil() {
 async function saveProfil() {
   const p = {}; PF.forEach(k => { p[k] = $('pf-' + k).value.trim(); });
   p.foto = fotoBaru !== undefined ? fotoBaru : (PR.foto || '');
+  p.modelku = bersihkanMK();
   const b = $('profSave'); b.disabled = true;
-  try { await Repo.setProfile(p); PR = p; fotoBaru = undefined; applyHeader(); $('profMsg').textContent = '✔ Profil tersimpan.'; toast('Profil tersimpan.'); }
+  try { await Repo.setProfile(p); PR = p; fotoBaru = undefined; MK = JSON.parse(JSON.stringify(PR.modelku)); drawMK(); applyHeader(); $('profMsg').textContent = '✔ Profil tersimpan.'; toast('Profil tersimpan.'); }
   catch (e) { console.error(e); $('profMsg').textContent = 'Gagal menyimpan profil. Coba lagi.'; }
   b.disabled = false;
 }
@@ -660,14 +757,17 @@ async function unduh(btn) {
     const fs = PD.fisik.filter(x => x.nama.trim()).map(x => new Paragraph({ children: [R('● ' + x.nama + ' ('), ...runs(x.suasana), R(')')], indent: IND, spacing: { after: 120 } }));
     const tp = PD.tpack.filter(x => x.alat && x.ket).map(x => bl(x.alat === 'Lainnya' ? x.manual : x.alat, x.ket));
     let nn = 0; const nl = t => (++nn) + '. ' + t;
+    const modelAll = [...new Set([...PD.model, ...(PD.modelL || []), ...D.ped.map(q => (findModel(q.model) || {}).nama)].filter(x => String(x || '').trim()))];
+    const pk = [...(PD.pendukung || []), ...(PD.pendukungL || [])].map(x => String(x).trim()).filter(Boolean).join(', ');
     content.push(H('3. DESAIN PEMBELAJARAN'), T([
       ...full(nl('Capaian Pembelajaran'), ls(ne(U.cp).map(b1))), ...full(nl('Tujuan Pembelajaran'), ls(tpL)),
       ...(um() ? [] : [...full(nl('Pemahaman Abadi (UbD)'), U.abadi || '-'), ...full(nl('Pertanyaan Esensial (UbD)'), ls(ne(U.esensial).map(b1))),
         ...full(nl('Pengetahuan Kunci'), U.kunciP || '-'), ...full(nl('Keterampilan Kunci'), U.kunciK || '-'),
         ...full(nl('Tujuan Sosial Emosional (CASEL)'), ls(U.selTuju.map(b1)))]),
       ...full(nl('Lintas Disiplin Ilmu'), ls(li)), ...full(nl('SDGs'), ls(sd)),
-      ...full(nl('Praktik Pedagogis'), ''), ...full('    A. Model Pembelajaran:', ls(ne(PD.model).map(b1))), ...full('    B. Pendekatan (Deep Learning):', ''),
+      ...full(nl('Praktik Pedagogis'), ''), ...full('    A. Model Pembelajaran:', ls(modelAll.map(b1))), ...full('    B. Pendekatan (Deep Learning):', ''),
       ...full('        ● Mindful', PD.mindful || '-'), ...full('        ● Meaningful', PD.meaningful || '-'), ...full('        ● Joyful', PD.joyful || '-'),
+      ...(pk ? full('    Pendekatan pendukung:', pk) : []),
       ...full('    C. Metode Pembelajaran:', ls(ne(PD.metode).map(b1))),
       ...full(nl('Kemitraan Pembelajaran'), ls(mit)),
       ...full(nl('Lingkungan Belajar (Fisik & Budaya)'), ''), ...full('    A. Ruang Fisik:', ls(fs)), ...full('    B. Budaya Belajar:', ls(ne(PD.budaya).map(b1))), ...full('    C. Pemanfaatan Digital:', ls(tp))]));
@@ -681,7 +781,9 @@ async function unduh(btn) {
       const sec = (title, items) => [new TableRow({ children: [new TableCell({ children: [std('● ' + title, true)], columnSpan: 2, shading: { fill: SH } })] }),
         ...items.map(([l, t]) => new TableRow({ children: [new TableCell({ width: W(5), children: [ctr('○')] }), new TableCell({ width: W(95), children: [new Paragraph({ children: [R(l + ': ', { bold: true }), ...runs(t)], spacing: { before: 80, after: 80 } })] })] }))];
       const cs = p.casel.filter(c => c.k).map(c => [c.k, c.akt || '-']);
+      const mm = findModel(p.model), pm = mm ? mm.nama + ' (acuan sintaks: ' + versiOf(mm, p.mver).acuan + '; disesuaikan oleh guru)' : '';
       content.push(ctr('PERTEMUAN ' + p.ke + ' (' + p.jp + ' : ' + n + ' x ' + m + ' menit)', { bold: true }), new Paragraph({ children: [R('Tujuan Pembelajaran yang dituju: ', { bold: true }), R(p.tp.join(', ') || '-')], spacing: { before: 100, after: 160 } }),
+        ...(pm ? [new Paragraph({ children: [R('Model pembelajaran: ', { bold: true }), R(pm)], spacing: { after: 160 } })] : []),
         T([...keg('awal', 'Kegiatan Awal', p.wAwal), ...keg('inti', 'Kegiatan Inti', p.wInti), ...keg('penutup', 'Kegiatan Penutup', p.wPenutup),
           ...(um() ? [] : [...sec('INTEGRASI DUP (DESAIN UNIVERSAL UNTUK PEMBELAJARAN)', [['Keterlibatan', gab(p.ket, lainL(p.ketL))], ['Representasi', gab(p.rep, lainL(p.repL))], ['Aksi dan Ekspresi', gab(p.aks, lainL(p.aksL))], ...(p.dupCat.trim() ? [['Catatan', p.dupCat]] : [])]),
           ...sec('INTEGRASI SOSIAL EMOSIONAL (CASEL)', cs.length ? cs : [['Kompetensi', '-']])])], [450, 8576]),

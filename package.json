@@ -1,6 +1,6 @@
 {
   "name": "modul-ajar-app",
-  "version": "3.0.0",
+  "version": "3.2.0",
   "description": "DeepLearn Builder - Rancangan Pembelajaran Mendalam (UbD, DUP, CASEL)",
   "main": "main.js",
   "scripts": {
@@ -24,6 +24,7 @@
       "style.css",
       "app.js",
       "repo.js",
+      "katalog.js",
       "firebase-config.js",
       "docx.js",
       "pizzip.min.js",
