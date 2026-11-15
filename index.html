@@ -24,6 +24,7 @@
       <div class="menu" id="acctMenu" hidden>
         <div class="mi-h" id="whoMail"></div>
         <button data-go="profil">Profil saya</button>
+        <button data-go="tentang">Tentang dan Bantuan</button>
         <button id="logout">Keluar</button>
       </div>
     </div>
@@ -48,6 +49,7 @@
         <button class="gbtn" id="gLogin"><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span>Masuk dengan Google</span></button>
         <p class="warn wmsg" id="loginMsg"></p>
         <p class="lp-note">RPM Anda hanya bisa dibaca oleh akun Anda sendiri.</p>
+        <p class="lp-note"><button class="linkb" data-go="tentang" type="button">Tentang aplikasi</button></p>
       </div>
     </div>
   </div>
@@ -61,6 +63,57 @@
   <p class="notice info" id="profNote" hidden>Lengkapi profil Anda agar identitas dan pengesahan RPM terisi otomatis. <button class="linkb" data-go="profil">Isi profil</button></p>
   <div class="tabs" id="tabs"></div>
   <div id="listBody"></div>
+</section>
+
+<section id="tentangv" class="screen" hidden>
+  <div class="card about">
+    <div class="abouthead"><div><h2>Tentang dan Bantuan</h2><p class="sub">DeepLearn Builder <span id="tentangVer"></span></p></div><button class="ghost" id="tentangBack" type="button">← Kembali</button></div>
+    <details open><summary>Tentang aplikasi</summary>
+      <p>DeepLearn Builder membantu guru menyusun Rencana Pembelajaran Mendalam (RPM) yang terpadu, mulai dari tujuan, asesmen, sampai kegiatan, lalu mengunduhnya sebagai dokumen .docx. Aplikasi ini bisa dipakai untuk semua mata pelajaran.</p>
+      <p>Ada dua mode: <b>Umum</b> (komponen RPM yang sudah akrab) dan <b>Terintegrasi</b> (menambahkan UbD, DUP, dan CASEL). Anda bisa berpindah mode kapan saja tanpa kehilangan isian.</p>
+    </details>
+    <details><summary>Cara memakai</summary>
+      <ol>
+        <li>Isi <b>Profil</b> sekali saja (nama, sekolah, kepala sekolah). Data ini mengisi RPM baru secara otomatis.</li>
+        <li>Di <b>Daftar RPM</b>, tekan <b>+ RPM baru</b> lalu pilih mode.</li>
+        <li>Isi tiap langkah. Pekerjaan tersimpan otomatis; tekan <b>Simpan draft</b> bila ingin memastikan.</li>
+        <li>Di langkah <b>Ringkasan dan Unduh</b>, unduh dokumen .docx. RPM yang diunduh berstatus <b>Selesai</b> dan tetap bisa diedit, disalin, atau diunduh lagi dari Daftar RPM.</li>
+      </ol>
+    </details>
+    <details><summary>Istilah yang dipakai</summary>
+      <dl>
+        <dt>Pembelajaran Mendalam</dt><dd>Pendekatan yang menekankan pembelajaran berkesadaran (mindful), bermakna (meaningful), dan menggembirakan (joyful).</dd>
+        <dt>Pendekatan</dt><dd>Cara pandang yang luas dalam merancang pembelajaran, misalnya berpusat pada murid, kontekstual, atau berdiferensiasi.</dd>
+        <dt>Model pembelajaran</dt><dd>Kerangka pembelajaran dengan urutan fase tertentu, misalnya PBL atau inkuiri.</dd>
+        <dt>Sintaks</dt><dd>Urutan fase atau langkah pada sebuah model.</dd>
+        <dt>Strategi, metode, dan teknik</dt><dd>Cara melaksanakan pembelajaran, dari yang umum ke yang rinci (misalnya metode diskusi dengan teknik tanya jawab). Urutan umumnya pendekatan, model, strategi, metode, lalu teknik. Penulis yang berbeda memakai istilah ini dengan sedikit berbeda.</dd>
+        <dt>CP dan TP</dt><dd>Capaian Pembelajaran adalah kompetensi yang dicapai murid pada akhir sebuah fase. Tujuan Pembelajaran adalah rincian yang diturunkan dari CP untuk satu kegiatan belajar.</dd>
+        <dt>UbD (Understanding by Design)</dt><dd>Merancang dari tujuan akhir, lalu bukti asesmen, baru pengalaman belajar.</dd>
+        <dt>DUP (Desain Universal untuk Pembelajaran)</dt><dd>Menyediakan beragam cara keterlibatan, representasi materi, serta aksi dan ekspresi agar semua murid terjangkau.</dd>
+        <dt>CASEL</dt><dd>Kerangka kompetensi sosial emosional: kesadaran diri, manajemen diri, kesadaran sosial, keterampilan berelasi, dan pengambilan keputusan yang bertanggung jawab.</dd>
+        <dt>Draft dan Selesai</dt><dd>Draft adalah RPM yang masih dikerjakan. RPM otomatis menjadi Selesai setelah diunduh.</dd>
+      </dl>
+    </details>
+    <details><summary>Model pembelajaran dan sintaks</summary>
+      <p>Sintaks di aplikasi adalah <b>acuan dari literatur</b> yang dicantumkan penulisnya, bukan aturan. Sintaks sebuah model sering dirumuskan berbeda oleh penulis yang berbeda, jadi aplikasi tidak mengunci satu versi. Setelah sintaks dipasang di langkah Kegiatan, blok kegiatannya bebas Anda ubah, tambah, atau hapus. Anda juga bisa membuat model sendiri di halaman Profil. Dokumen RPM mencantumkan acuan sintaks yang dipakai.</p>
+      <div id="katTabel"></div>
+    </details>
+    <details><summary>Privasi dan penyimpanan</summary>
+      <p>RPM dan profil Anda disimpan di akun Google yang Anda pakai untuk masuk. Aturan keamanan database membatasi akses dari aplikasi hanya untuk pemilik akun.</p>
+      <p>Lampiran .docx tersimpan di perangkat yang Anda pakai dan tidak ikut ke akun, jadi unggah ulang bila RPM dibuka dari perangkat lain. Aplikasi tidak menampilkan iklan. Anda bisa menghapus RPM kapan saja dari Daftar RPM.</p>
+    </details>
+    <details><summary>Versi dan pembaruan</summary>
+      <ul>
+        <li><b>3.2</b>: halaman Tentang dan Bantuan; katalog model dengan sintaks acuan bersumber; model per pertemuan dan model buatan guru; pendekatan pendukung; langkah Pendekatan dipindah sebelum Kegiatan.</li>
+        <li><b>3.1</b>: kembali ke halaman terakhir setelah muat ulang; layar pemuatan; header tampil di editor HP.</li>
+        <li><b>3.0</b>: masuk dengan Google, penyimpanan per akun, Daftar RPM (draft dan selesai), profil guru, dan tampilan HP.</li>
+        <li><b>2.x</b>: mode Umum dan Terintegrasi, lampiran, dan kolom "lainnya" yang bisa ditambah.</li>
+      </ul>
+    </details>
+    <details><summary>Pengembang dan masukan</summary>
+      <p id="tentangDev"></p>
+    </details>
+  </div>
 </section>
 
 <section id="profilv" class="screen" hidden>
@@ -84,6 +137,10 @@
       <label class="f"><span>Kepala sekolah</span><input id="pf-kepsek" placeholder="Nama beserta gelar"></label>
       <label class="f"><span>NIP kepala sekolah</span><input id="pf-nipk" inputmode="numeric"></label>
     </div>
+    <h3>Model pembelajaran saya</h3>
+    <p class="hint">Tambahkan model beserta sintaksnya sendiri. Model ini muncul di daftar pilihan model saat Anda menyusun RPM.</p>
+    <div id="mkList"></div>
+    <button class="add" id="mkAdd" type="button">+ Model baru</button>
     <div class="pactions"><button class="big" id="profSave">Simpan profil</button><span class="hint" id="profMsg"></span></div>
   </div>
 </section>
@@ -117,6 +174,7 @@
 <script src="pizzip.min.js"></script>
 <script src="docx-merger.min.js"></script>
 <script src="firebase-config.js"></script>
+<script src="katalog.js"></script>
 <script src="repo.js"></script>
 <script src="app.js"></script>
 </body>
