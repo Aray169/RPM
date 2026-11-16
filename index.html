@@ -95,7 +95,8 @@
       </dl>
     </details>
     <details><summary>Model pembelajaran dan sintaks</summary>
-      <p>Sintaks di aplikasi adalah <b>acuan dari literatur</b> yang dicantumkan penulisnya, bukan aturan. Sintaks sebuah model sering dirumuskan berbeda oleh penulis yang berbeda, jadi aplikasi tidak mengunci satu versi. Setelah sintaks dipasang di langkah Kegiatan, blok kegiatannya bebas Anda ubah, tambah, atau hapus. Anda juga bisa membuat model sendiri di halaman Profil. Dokumen RPM mencantumkan acuan sintaks yang dipakai.</p>
+      <p>Sintaks di aplikasi adalah <b>rumusan yang banyak dirujuk dalam literatur pendidikan Indonesia</b>, dengan nama penulis rujukannya. Ini <b>bukan panduan baku yang mengikat</b>, dan belum dibandingkan dengan karya asli pencetus modelnya. Sintaks sebuah model sering dirumuskan berbeda oleh penulis yang berbeda, jadi aplikasi tidak mengunci satu versi.</p>
+      <p>Nama fase diringkas menjadi 1 sampai 2 kata agar mudah dibaca; nama lengkapnya tampil sebagai petunjuk di tiap blok. Letak blok bisa dipilih: semua di Kegiatan Inti (bawaan) atau menyebar sesuai fase. Setelah dipasang, blok bebas Anda ubah, tambah, atau hapus. Anda juga bisa membuat model sendiri di halaman Profil. Dokumen RPM mencantumkan acuan sintaks yang dipakai.</p>
       <div id="katTabel"></div>
     </details>
     <details><summary>Privasi dan penyimpanan</summary>
@@ -104,6 +105,7 @@
     </details>
     <details><summary>Versi dan pembaruan</summary>
       <ul>
+        <li><b>3.3</b>: nama fase sintaks diringkas menjadi 1 sampai 2 kata; pilihan letak sintaks (semua di Kegiatan Inti atau menyebar); footer gabungan di editor HP.</li>
         <li><b>3.2</b>: halaman Tentang dan Bantuan; katalog model dengan sintaks acuan bersumber; model per pertemuan dan model buatan guru; pendekatan pendukung; langkah Pendekatan dipindah sebelum Kegiatan.</li>
         <li><b>3.1</b>: kembali ke halaman terakhir setelah muat ulang; layar pemuatan; header tampil di editor HP.</li>
         <li><b>3.0</b>: masuk dengan Google, penyimpanan per akun, Daftar RPM (draft dan selesai), profil guru, dan tampilan HP.</li>
@@ -138,7 +140,7 @@
       <label class="f"><span>NIP kepala sekolah</span><input id="pf-nipk" inputmode="numeric"></label>
     </div>
     <h3>Model pembelajaran saya</h3>
-    <p class="hint">Tambahkan model beserta sintaksnya sendiri. Model ini muncul di daftar pilihan model saat Anda menyusun RPM.</p>
+    <p class="hint">Tambahkan model beserta sintaksnya sendiri. Model ini muncul di daftar pilihan model saat Anda menyusun RPM. Gunakan nama fase yang ringkas; bagian (awal, inti, penutup) dipakai bila Anda memilih Menyebar sesuai fase.</p>
     <div id="mkList"></div>
     <button class="add" id="mkAdd" type="button">+ Model baru</button>
     <div class="pactions"><button class="big" id="profSave">Simpan profil</button><span class="hint" id="profMsg"></span></div>
@@ -148,7 +150,7 @@
 <div class="edbar" id="edbar" hidden>
   <button class="ghost back" id="toList" data-go="list">← Daftar RPM</button>
   <span class="edtitle" id="edTitle"></span>
-  <em id="saved"></em>
+  <div class="edstat"><em id="posTop"></em><em id="saved"></em></div>
   <label class="modesel"><span>Mode</span><select id="modeSw" title="Mode rancangan" aria-label="Mode rancangan"><option value="" disabled>Pilih mode</option><option value="umum">Umum</option><option value="terpadu">Terintegrasi</option></select></label>
   <button id="saveDraft">Simpan draft</button>
 </div>
@@ -160,7 +162,7 @@
   </aside>
   <main>
     <div id="view"></div>
-    <div class="nav"><button class="ghost" id="prev">← Kembali</button><span id="pos"></span><button id="next">Lanjut →</button></div>
+    <div class="nav"><button class="ghost navmob" id="navDaftar" data-go="list" type="button">Daftar</button><button class="ghost navmob" id="navSimpan" type="button">Simpan</button><button class="ghost" id="prev">← <span class="lbl">Kembali</span></button><span id="pos"></span><button id="next">Lanjut →</button></div>
   </main>
 </div>
 
