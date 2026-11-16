@@ -31,7 +31,7 @@ const KEGT = { awal: ['A. Kegiatan Awal', 'wAwal'], inti: ['B. Kegiatan Inti', '
 
 const blankK = k => ({ tipe: kv(KEG[k][0]), manual: '', detail: '' });
 const blankC = () => ({ k: '', akt: '' });
-const blankP = n => ({ ke: String(n), model: '', mver: '', jp: '2 JP', mJP: '40', wAwal: '', wInti: '', wPenutup: '', awal: [blankK('awal')], inti: [blankK('inti')], penutup: [blankK('penutup')], tp: [], ket: [], ketL: [''], rep: [], repL: [''], aks: [], aksL: [''], dupCat: '', casel: [blankC()] });
+const blankP = n => ({ ke: String(n), model: '', mver: '', letak: 'inti', jp: '2 JP', mJP: '40', wAwal: '', wInti: '', wPenutup: '', awal: [blankK('awal')], inti: [blankK('inti')], penutup: [blankK('penutup')], tp: [], ket: [], ketL: [''], rep: [], repL: [''], aks: [], aksL: [''], dupCat: '', casel: [blankC()] });
 const blankL = () => ({ waktu: WAKTU[0], jenis: 'Pertanyaan Pemantik', manual: '', detail: '', tp: [], cara: [], caraL: [''] });
 const blankR = () => ({ tp: '', k: '', l: ['', '', '', ''] });
 const blankS = () => ({ k: '', ind: '', nilai: 'Observasi' });
@@ -59,18 +59,18 @@ const g = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const st = (o, p, v) => { const k = p.split('.'), l = k.pop(); k.reduce((a, x) => a[x], o)[l] = v; };
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-const APP_INFO = { versi: '3.2.0', pengembang: 'Ariesta Vandera', kontak: '' }; /* isi kontak (misalnya nomor WhatsApp atau tautan formulir) agar tampil di halaman Tentang */
+const APP_INFO = { versi: '3.3.0', pengembang: 'Ariesta Vandera', kontak: '' }; /* isi kontak (misalnya nomor WhatsApp atau tautan formulir) agar tampil di halaman Tentang */
 let D, cur = 0, curId = null, curStatus = 'draft', curCreated = 0, dirty = false, syncT = null, USER = null, DAFTAR = [], listFilter = 'semua', PR = {}, curPersisted = false, baseSnap = null, fotoBaru;
 /* ---------- katalog model dan sintaks ---------- */
 const PENDUKUNG = ['Berpusat pada murid', 'Kontekstual', 'Berdiferensiasi', 'Pengajaran sesuai tingkat capaian (TaRL)', 'Saintifik', 'Kolaboratif', 'Pembelajaran sosial emosional'];
-const MODELS = () => [...KATALOG, ...((PR && PR.modelku) || []).map(m => ({ id: 'u:' + m.id, nama: m.nama, grup: 'Model saya', versi: [{ id: 'v1', acuan: 'dibuat oleh guru', label: 'Versi saya', fase: m.fase }] }))];
+const MODELS = () => [...KATALOG, ...((PR && PR.modelku) || []).map(m => ({ id: 'u:' + m.id, nama: m.nama, grup: 'Model saya', versi: [{ id: 'v1', acuan: 'dibuat oleh guru', label: 'Versi saya', fase: m.fase.map(f => ({ ...f, k: f.k || f.n })) }] }))];
 const findModel = id => (id ? MODELS().find(m => m.id === id) || null : null);
 const versiOf = (m, id) => m.versi.find(x => x.id === id) || m.versi[0];
 const BAGIAN = ['awal', 'inti', 'penutup'];
 /* seberapa banyak fase sintaks yang sudah ada sebagai blok kegiatan; hanya informasi, bukan penilaian */
 function covOf(p, v) {
   const ada = new Set(BAGIAN.flatMap(k => p[k].filter(x => x.fase).map(x => x.fase)));
-  const hilang = v.fase.filter(f => !ada.has(f.n)).map(f => f.n);
+  const hilang = v.fase.filter(f => !ada.has(f.k)).map(f => f.k);
   return { total: v.fase.length, ada: v.fase.length - hilang.length, hilang, terpasang: ada.size > 0 };
 }
 const grupChips = path => {
@@ -85,7 +85,7 @@ function modelBlok(p, i) {
   return `<div class="blk" style="--c:var(--pri)"><h4>Model pembelajaran pertemuan ini</h4>
     <div class="row"><select data-p="ped.${i}.model" data-r="1">${opsi}</select></div>
     ${m && m.versi.length > 1 ? `<div class="row"><select data-p="ped.${i}.mver" data-r="1">${m.versi.map(x => `<option value="${esc(x.id)}" ${v.id === x.id ? 'selected' : ''}>${esc(x.label || 'Acuan: ' + x.acuan)}</option>`).join('')}</select></div>` : ''}
-    ${m ? `<p class="hint">Acuan sintaks: ${esc(v.acuan)}. ${esc(m.catatan || '')} Blok sintaks hanyalah kerangka: ubah, tambah, atau hapus sesuai kebutuhan Anda.</p>
+    ${m ? `<label class="f" style="margin:8px 0 6px"><span>Letak blok sintaks</span><select data-p="ped.${i}.letak"><option value="inti" ${p.letak !== 'sebar' ? 'selected' : ''}>Semua di Kegiatan Inti</option><option value="sebar" ${p.letak === 'sebar' ? 'selected' : ''}>Menyebar sesuai fase (awal, inti, penutup)</option></select></label><p class="hint">Acuan sintaks: ${esc(v.acuan)}. ${esc(m.catatan || '')} Blok sintaks hanyalah kerangka: ubah, tambah, atau hapus sesuai kebutuhan Anda.</p>
       <div class="row" style="align-items:center"><button class="add" data-act="pasang" data-i="${i}" type="button">Pasang sintaks</button><span class="hint">${cov.terpasang ? `Fase terpetakan ${cov.ada}/${cov.total}${cov.hilang.length ? ' · belum ada: ' + esc(cov.hilang.join(', ')) : ''}` : 'Belum dipasang.'}</span></div>` : '<p class="hint">Pilih model untuk melihat sintaks acuannya, atau biarkan bebas. Model yang dipilih ✓ berasal dari langkah Pendekatan.</p>'}
   </div>`;
 }
@@ -93,17 +93,18 @@ function modelBlok(p, i) {
 function pasangSintaks(i) {
   const p = D.ped[i], m = findModel(p.model); if (!m) return;
   const v = versiOf(m, p.mver); p.mver = v.id;
-  const nama = new Set(v.fase.map(f => f.n));
+  const sebar = p.letak === 'sebar', nama = new Set(v.fase.map(f => f.k));
   BAGIAN.forEach(k => {
     p[k] = p[k].filter(x => !(x.fase && !String(x.detail).trim()));
     p[k].forEach(x => { if (x.fase && !nama.has(x.fase)) { delete x.fase; delete x.hint; } });
   });
   const ada = new Set(BAGIAN.flatMap(k => p[k].filter(x => x.fase).map(x => x.fase)));
+  const baru = { awal: [], inti: [], penutup: [] };
+  v.fase.forEach(f => { if (!ada.has(f.k)) baru[sebar ? f.b : 'inti'].push({ tipe: 'Lainnya', manual: f.k, detail: '', fase: f.k, hint: (f.n !== f.k ? f.n + '. ' : '') + (f.p || '') }); });
   BAGIAN.forEach(k => {
-    const baru = v.fase.filter(f => f.b === k && !ada.has(f.n)).map(f => ({ tipe: 'Lainnya', manual: f.n, detail: '', fase: f.n, hint: f.p || '' }));
-    if (!baru.length) { if (!p[k].length) p[k] = [blankK(k)]; return; }
+    if (!baru[k].length) { if (!p[k].length) p[k] = [blankK(k)]; return; }
     const polos = p[k].length === 1 && !p[k][0].fase && p[k][0].tipe === kv(KEG[k][0]) && !String(p[k][0].manual).trim() && !String(p[k][0].detail).trim();
-    p[k] = (polos ? [] : p[k]).concat(baru);
+    p[k] = (polos ? [] : p[k]).concat(baru[k]);
   });
   save(); render(); toast('Sintaks "' + m.nama + '" dipasang. Isi detail tiap blok sesuai kebutuhan.');
 }
@@ -120,7 +121,11 @@ function normalize(d) {
   }
   if (!Array.isArray(d.pend.pendukung)) d.pend.pendukung = [];
   if (!Array.isArray(d.pend.pendukungL)) d.pend.pendukungL = [''];
-  d.ped.forEach(q => { q.ke = String(q.ke); if (q.model === undefined) q.model = ''; if (q.mver === undefined) q.mver = ''; });
+  d.ped.forEach(q => {
+    q.ke = String(q.ke); if (q.model === undefined) q.model = ''; if (q.mver === undefined) q.mver = ''; if (q.letak === undefined) q.letak = 'inti';
+    const mm = findModel(q.model); /* blok sintaks versi sebelumnya yang masih berlabel nama lengkap diganti nama singkat */
+    if (mm) { const vv = versiOf(mm, q.mver); BAGIAN.forEach(k => q[k].forEach(x => { const f = x.fase && vv.fase.find(y => y.n === x.fase && y.k !== x.fase); if (f) { if (x.manual === f.n) x.manual = f.k; x.fase = f.k; } })); }
+  });
   return d;
 }
 D = normalize(null);
@@ -378,11 +383,12 @@ function render(top) {
   $('modeSw').value = D.mode || '';
   if (!D.mode) {
     $('view').innerHTML = chooser(); $('steps').innerHTML = ''; $('cek').innerHTML = ''; $('pos').textContent = '';
-    $('prev').disabled = true; $('next').disabled = true; if (top) window.scrollTo(0, 0); return;
+    $('prev').disabled = true; $('next').disabled = true; const pt0 = $('posTop'); if (pt0) pt0.textContent = ''; if (top) window.scrollTo(0, 0); return;
   }
   $('view').innerHTML = STEPS[cur][1]();
   drawSteps();
   $('pos').textContent = 'Langkah ' + (cur + 1) + ' dari ' + STEPS.length; $('pos').dataset.s = (cur + 1) + '/' + STEPS.length;
+  const pt = $('posTop'); if (pt) pt.textContent = 'Langkah ' + (cur + 1) + '/' + STEPS.length;
   $('prev').disabled = cur === 0; $('next').disabled = cur === STEPS.length - 1;
   $('cekH').textContent = um() ? 'Cek kelengkapan' : 'Cek keterpaduan';
   saveNav(); cek(); if (top) window.scrollTo(0, 0); if (STEPS[cur][0] === 'Lampiran') listLamp();
@@ -599,7 +605,7 @@ function showTentang() {
   setView('tentang');
   $('tentangVer').textContent = 'versi ' + APP_INFO.versi;
   $('tentangDev').innerHTML = 'Dikembangkan oleh <b>' + esc(APP_INFO.pengembang) + '</b>.' + (APP_INFO.kontak ? ' Masukan dan laporan masalah: ' + esc(APP_INFO.kontak) + '.' : ' Saat melaporkan masalah, sebutkan nomor versi di atas.');
-  $('katTabel').innerHTML = KATALOG.map(m => { const v = m.versi[0]; return `<details><summary>${esc(m.nama)} <span class="kacuan">· acuan: ${esc(v.acuan)} · ${v.fase.length} fase</span></summary><ol>${v.fase.map(f => `<li>${esc(f.n)}</li>`).join('')}</ol>${m.catatan ? `<p class="hint">${esc(m.catatan)}</p>` : ''}</details>`; }).join('');
+  $('katTabel').innerHTML = KATALOG.map(m => { const v = m.versi[0]; return `<details><summary>${esc(m.nama)} <span class="kacuan">· acuan: ${esc(v.acuan)} · ${v.fase.length} fase</span></summary><ol>${v.fase.map(f => `<li><b>${esc(f.k)}</b>${f.n !== f.k ? ' <span class="kacuan">· ' + esc(f.n) + '</span>' : ''}</li>`).join('')}</ol>${m.catatan ? `<p class="hint">${esc(m.catatan)}</p>` : ''}</details>`; }).join('');
 }
 $('tentangBack').onclick = () => { if (USER) showList(); else setView('login'); };
 
@@ -675,13 +681,14 @@ document.addEventListener('click', e => {
 $('fotoIn').onchange = e => { const f = e.target.files[0]; if (f) bacaFoto(f); e.target.value = ''; };
 $('fotoDel').onclick = () => { fotoBaru = ''; drawAvatar($('avBig'), (USER && USER.photo) || '', $('pf-nama').value || (USER && USER.name) || ''); };
 $('profSave').onclick = saveProfil;
-$('saveDraft').onclick = async () => {
+const simpanDraft = async () => {
   if (!D.mode) return showList('RPM masih kosong, tidak ada yang disimpan.');
   await sync();
   if (dirty) return toast('Gagal menyimpan. Periksa koneksi lalu coba lagi.');
   if (!curPersisted) return showList('RPM masih kosong, tidak ada yang disimpan.');
   await showList(curStatus === 'selesai' ? 'Perubahan tersimpan.' : 'Draft tersimpan.');
 };
+$('saveDraft').onclick = simpanDraft; $('navSimpan').onclick = simpanDraft;
 $('listv').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.tab) { listFilter = b.dataset.tab; saveNav(); return drawList(); }
