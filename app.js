@@ -59,7 +59,7 @@ const g = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const st = (o, p, v) => { const k = p.split('.'), l = k.pop(); k.reduce((a, x) => a[x], o)[l] = v; };
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-const APP_INFO = { versi: '3.3.0', pengembang: 'Ariesta Vandera', kontak: '' }; /* isi kontak (misalnya nomor WhatsApp atau tautan formulir) agar tampil di halaman Tentang */
+const APP_INFO = { versi: '3.4.0', pengembang: 'Ariesta Vandera', kontak: '' }; /* isi kontak (misalnya nomor WhatsApp atau tautan formulir) agar tampil di halaman Tentang */
 let D, cur = 0, curId = null, curStatus = 'draft', curCreated = 0, dirty = false, syncT = null, USER = null, DAFTAR = [], listFilter = 'semua', PR = {}, curPersisted = false, baseSnap = null, fotoBaru;
 /* ---------- katalog model dan sintaks ---------- */
 const PENDUKUNG = ['Berpusat pada murid', 'Kontekstual', 'Berdiferensiasi', 'Pengajaran sesuai tingkat capaian (TaRL)', 'Saintifik', 'Kolaboratif', 'Pembelajaran sosial emosional'];
@@ -73,6 +73,15 @@ function covOf(p, v) {
   const hilang = v.fase.filter(f => !ada.has(f.k)).map(f => f.k);
   return { total: v.fase.length, ada: v.fase.length - hilang.length, hilang, terpasang: ada.size > 0 };
 }
+const modelGrup = () => { const gr = {}; MODELS().forEach(m => { (gr[m.grup] = gr[m.grup] || []).push(m.nama); }); return Object.entries(gr); };
+const mselLabel = (pilih, kosong) => (pilih.length ? pilih.length + ' dipilih' : kosong);
+const mselTags = (path, pilih) => pilih.map(v => `<span class="mtag">${esc(v)}<button type="button" data-mseldel="${esc(path)}" data-v="${esc(v)}" aria-label="Hapus ${esc(v)}">×</button></span>`).join('');
+/* pilihan ganda berbentuk dropdown: hanya pilihan yang terpilih tampil sebagai label kecil */
+const MSEL = (path, grup, kosong) => {
+  const pilih = g(D, path);
+  return `<div class="msel" data-msel="${esc(path)}" data-kosong="${esc(kosong)}"><div class="msel-wrap"><button type="button" class="msel-btn" data-mselbtn="1"><span class="msel-lbl">${esc(mselLabel(pilih, kosong))}</span><span class="car">▾</span></button><div class="msel-panel" hidden>${grup.map(([jdl, arr]) => `${jdl ? `<p class="msel-g">${esc(jdl)}</p>` : ''}${arr.map(o => `<label class="msel-i"><input type="checkbox" data-c="${esc(path)}" value="${esc(o)}" ${pilih.includes(o) ? 'checked' : ''}><span>${esc(o)}</span></label>`).join('')}`).join('')}</div></div><div class="msel-tags">${mselTags(path, pilih)}</div></div>`;
+};
+function refreshMsel(ms) { const path = ms.dataset.msel, pilih = g(D, path); ms.querySelector('.msel-lbl').textContent = mselLabel(pilih, ms.dataset.kosong); ms.querySelector('.msel-tags').innerHTML = mselTags(path, pilih); }
 const grupChips = path => {
   const gr = {}; MODELS().forEach(m => { (gr[m.grup] = gr[m.grup] || []).push(m.nama); });
   return Object.entries(gr).map(([k, v]) => `<p class="hint" style="margin:10px 0 4px"><b>${esc(k)}</b></p>${CHK(path, v)}`).join('');
@@ -178,24 +187,24 @@ function updWaktu(i) {
 /* ---------- langkah ---------- */
 const STEPS = [
   ['Identitas', () => `<div class="card">${head('Identitas Modul', 'Sampul dan data dasar rancangan pembelajaran.')}
-    <div class="f"><span>Gambar sampul</span>${D.cover ? `<img src="${D.cover.u}" style="max-width:220px;border-radius:10px;display:block;margin-bottom:8px"><button class="x" data-act="rmcover">Hapus sampul</button>` : '<input type="file" id="cover" accept="image/*">'}</div>
-    <div class="g2">${F('Nama sekolah', 'id.sekolah')}${F('Mata pelajaran', 'id.mapel', { ph: 'Contoh: Matematika' })}${F('Topik utama', 'id.topik', { ph: 'Contoh: Pecahan senilai' })}${F('Tahun pelajaran', 'id.tahun', { ph: '2026/2027' })}
+    <h3>Sampul</h3><div class="f"><span>Gambar sampul</span>${D.cover ? `<img src="${D.cover.u}" style="max-width:220px;border-radius:10px;display:block;margin-bottom:8px"><button class="x" data-act="rmcover">Hapus sampul</button>` : '<input type="file" id="cover" accept="image/*">'}</div>
+    <h3>Data modul</h3><div class="g2">${F('Nama sekolah', 'id.sekolah')}${F('Mata pelajaran', 'id.mapel', { ph: 'Contoh: Matematika' })}${F('Topik utama', 'id.topik', { ph: 'Contoh: Pecahan senilai' })}${F('Tahun pelajaran', 'id.tahun', { ph: '2026/2027' })}
     ${S('Kelas', 'id.kelas', Object.keys(FASE))}<label class="f"><span>Fase</span><input readonly value="Fase ${FASE[D.id.kelas]}"></label>${S('Semester', 'id.semester', ['Ganjil', 'Genap'])}${S('Alokasi JP', 'id.jp', JP)}</div>
-    ${LIST('Penyusun', 'id.penyusun', 'Nama lengkap penyusun')}</div>`],
+    <h3>Penyusun</h3>${LIST('Nama penyusun', 'id.penyusun', 'Nama lengkap penyusun')}</div>`],
   ['Kenali Murid', () => `<div class="card">${head('Kenali Murid', 'Mulailah dari murid: apa yang sudah mereka bawa dan apa yang mungkin menghambat.')}
-    ${F('Pengetahuan awal', 'kenal.awal', { area: 3, ph: 'Contoh: Murid sudah mampu ..., tetapi belum mengenal ...' })}${F('Minat belajar', 'kenal.minat', { area: 2, ph: 'Contoh: Murid menyukai kerja kelompok dan permainan' })}
+    <h3>Kondisi murid</h3>${F('Pengetahuan awal', 'kenal.awal', { area: 3, ph: 'Contoh: Murid sudah mampu ..., tetapi belum mengenal ...' })}${F('Minat belajar', 'kenal.minat', { area: 2, ph: 'Contoh: Murid menyukai kerja kelompok dan permainan' })}
     ${um() ? '' : F('Kondisi emosional dan latar belakang murid', 'kenal.emosi', { area: 2, ph: 'Contoh: Sebagian murid cemas saat tampil di depan kelas; ada murid yang baru pindah sekolah', hint: 'Dasar penerapan CASEL: guru mengenali kondisi emosional dan latar belakang murid, bukan hanya kemampuannya.' })}
-    <div class="f"><span>Kebutuhan belajar</span>${D.kenal.kebutuhan.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`kenal.kebutuhan.${i}.tipe`, KB, 1)}${DEL('kenal.kebutuhan', i)}</div>${MAN(`kenal.kebutuhan.${i}`, 'Kategori manual...')}${TA(`kenal.kebutuhan.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('kenal.kebutuhan', '+ Kebutuhan')}</div>
+    <h3>Kebutuhan dan hambatan belajar</h3><div class="f"><span>Kebutuhan belajar</span>${D.kenal.kebutuhan.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`kenal.kebutuhan.${i}.tipe`, KB, 1)}${DEL('kenal.kebutuhan', i)}</div>${MAN(`kenal.kebutuhan.${i}`, 'Kategori manual...')}${TA(`kenal.kebutuhan.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('kenal.kebutuhan', '+ Kebutuhan')}</div>
     ${um() ? '' : F('Perkiraan hambatan belajar', 'kenal.hambatan', { area: 2, ph: 'Contoh: Sebagian murid takut salah dan enggan mencoba', hint: 'Dasar DUP: hambatan diperkirakan sejak awal, lalu jalurnya disiapkan sejak awal.' })}
-    ${F('Materi pembelajaran', 'kenal.materi', { area: 3, ph: 'Rincian cakupan materi...' })}
+    <h3>Materi</h3>${F('Materi pembelajaran', 'kenal.materi', { area: 3, ph: 'Rincian cakupan materi...' })}
     <h3>Dimensi Profil Lulusan (DPL)</h3>${CHK('kenal.dpl', DPL)}</div>`],
   ['Tahap 1: Tujuan Akhir', () => `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 1</span>'}${um() ? head('Tujuan Pembelajaran', 'Capaian dan tujuan pembelajaran yang ingin dicapai murid.') : head('Tujuan Akhir', 'Apa yang harus murid pahami dan mampu lakukan di akhir?')}
-    ${LIST('Capaian Pembelajaran (CP)', 'tuj.cp', 'Salin elemen atau deskripsi CP sesuai fase', '', 1)}${LIST('Tujuan Pembelajaran (TP)', 'tuj.tp', 'Contoh: Murid mampu menjelaskan ...', 'Awali dengan "Murid mampu" diikuti kata kerja yang bisa diamati, seperti menjelaskan atau mendemonstrasikan.', 1)}
-    ${um() ? '' : `${F('Pemahaman abadi', 'tuj.abadi', { area: 2, ph: 'Contoh: gagasan besar yang tetap diingat murid, ditulis sebagai kalimat lengkap', hint: 'Gagasan besar yang tetap diingat murid lama setelah pelajaran. Bukan judul topik.' })}
+    <h3>Capaian dan tujuan pembelajaran</h3>${LIST('Capaian Pembelajaran (CP)', 'tuj.cp', 'Salin elemen atau deskripsi CP sesuai fase', '', 1)}${LIST('Tujuan Pembelajaran (TP)', 'tuj.tp', 'Contoh: Murid mampu menjelaskan ...', 'Awali dengan "Murid mampu" diikuti kata kerja yang bisa diamati, seperti menjelaskan atau mendemonstrasikan.', 1)}
+    ${um() ? '' : `<h3>Pemahaman dan keterampilan kunci</h3>${F('Pemahaman abadi', 'tuj.abadi', { area: 2, ph: 'Contoh: gagasan besar yang tetap diingat murid, ditulis sebagai kalimat lengkap', hint: 'Gagasan besar yang tetap diingat murid lama setelah pelajaran. Bukan judul topik.' })}
     ${LIST('Pertanyaan esensial', 'tuj.esensial', 'Contoh: Apa yang membuat ... ?', 'Pertanyaan terbuka yang tidak punya satu jawaban pendek.', 1)}
     <div class="g2">${F('Pengetahuan kunci', 'tuj.kunciP', { area: 3, ph: 'Apa yang harus murid tahu? Contoh: istilah, konsep, aturan', hint: 'Fakta, istilah, konsep, atau aturan yang perlu diketahui murid agar tujuan tercapai.' })}${F('Keterampilan kunci', 'tuj.kunciK', { area: 3, ph: 'Apa yang harus murid bisa lakukan? Contoh: langkah, teknik', hint: 'Kemampuan yang perlu dipraktikkan murid agar tujuan tercapai.' })}</div>
     <h3>Tujuan sosial emosional (CASEL)</h3><p class="hint">Pilih satu atau dua kompetensi yang dituju modul ini.</p>${CHK('tuj.selTuju', SEL)}`}
-    <div class="f"><span>Koneksi lintas disiplin ilmu</span>${D.tuj.lintas.map((x, i) => `<div class="row"><input data-p="tuj.lintas.${i}.mapel" value="${esc(x.mapel)}" placeholder="Mata pelajaran"><input data-p="tuj.lintas.${i}.ket" value="${esc(x.ket)}" placeholder="Keterangan integrasi">${DEL('tuj.lintas', i)}</div>`).join('')}${ADDB('tuj.lintas', '+ Tambah')}</div>
+    <h3>Koneksi dan SDGs</h3><div class="f"><span>Koneksi lintas disiplin ilmu</span>${D.tuj.lintas.map((x, i) => `<div class="row"><input data-p="tuj.lintas.${i}.mapel" value="${esc(x.mapel)}" placeholder="Mata pelajaran"><input data-p="tuj.lintas.${i}.ket" value="${esc(x.ket)}" placeholder="Keterangan integrasi">${DEL('tuj.lintas', i)}</div>`).join('')}${ADDB('tuj.lintas', '+ Tambah')}</div>
     <div class="f"><span>Integrasi SDGs</span>${D.tuj.sdgs.map((x, i) => `<div class="row">${SO(`tuj.sdgs.${i}.sdg`, SDG)}<input data-p="tuj.sdgs.${i}.ket" value="${esc(x.ket)}" placeholder="Deskripsi...">${DEL('tuj.sdgs', i)}</div>`).join('')}${ADDB('tuj.sdgs', '+ Tambah')}</div></div>`],
   ['Tahap 2: Bukti Asesmen', () => { const t = D.bukti.tugas; return `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 2</span>'}${um() ? head('Asesmen', 'Rencanakan asesmen awal, formatif, dan sumatif.') : head('Bukti Asesmen', 'Tentukan bukti keberhasilan sebelum merancang kegiatan.')}
     ${um() ? '' : `<h3>A. Asesmen utama (tugas kinerja)</h3>${F('Nama tugas', 'bukti.tugas.nama', { ph: 'Contoh: Presentasi hasil investigasi' })}${F('Deskripsi tugas', 'bukti.tugas.desk', { area: 3, ph: 'Contoh: Murid melakukan ..., lalu menjelaskan ...' })}
@@ -210,15 +219,15 @@ const STEPS = [
     ${D.bukti.sel.map((x, i) => `<div class="blk" style="--c:var(--sel)"><div class="row">${SO(`bukti.sel.${i}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL('bukti.sel', i)}</div>${TA(`bukti.sel.${i}.ind`, 'Indikator perilaku yang diamati. Contoh: murid memberi semangat pada rekan yang belum berhasil')}${S('Cara menilai', `bukti.sel.${i}.nilai`, NILAI)}</div>`).join('')}${ADDB('bukti.sel', '+ Tambah penilaian CASEL')}`}</div>`; }],
   ['Pendekatan dan Lingkungan', () => `<div class="card">${head('Pendekatan dan Lingkungan', 'Model, metode, kemitraan, dan lingkungan belajar yang mendukung rancangan.')}
     <h3>Model pembelajaran</h3><p class="hint">Pilih model yang akan dipakai. Sintaksnya dipasang di langkah Kegiatan, per pertemuan, dan bisa Anda ubah. Model buatan sendiri ditambahkan di halaman Profil.</p>
-    ${grupChips('pend.model')}${LAINL('pend.modelL', 'Model lain: tulis nama (opsional)')}
+    ${MSEL('pend.model', modelGrup(), 'Pilih model pembelajaran')}${LAINL('pend.modelL', 'Model lain: tulis nama (opsional)')}
     <h3>Pendekatan pembelajaran</h3><p class="hint">Pendekatan utama adalah Pembelajaran Mendalam (berkesadaran, bermakna, menggembirakan). Tambahkan pendekatan pendukung bila ada.</p>
-    ${CHK('pend.pendukung', PENDUKUNG)}${LAINL('pend.pendukungL', 'Pendekatan lain: tulis nama (opsional)')}
+    ${MSEL('pend.pendukung', [['', PENDUKUNG]], 'Pilih pendekatan pendukung')}${LAINL('pend.pendukungL', 'Pendekatan lain: tulis nama (opsional)')}
     <h3>Prinsip Deep Learning</h3><div class="g3">${F('Mindful learning', 'pend.mindful', { area: 3, ph: 'Contoh: Murid fokus dan sadar pada proses belajarnya' })}${F('Meaningful learning', 'pend.meaningful', { area: 3, ph: 'Contoh: Materi dikaitkan dengan kehidupan sehari-hari murid' })}${F('Joyful learning', 'pend.joyful', { area: 3, ph: 'Contoh: Kegiatan berupa permainan atau tantangan yang menyenangkan' })}</div>
-    ${LIST('Metode pembelajaran', 'pend.metode', 'Contoh: Diskusi, Tanya Jawab')}
-    <div class="f"><span>Kemitraan pembelajaran<i title="Pihak di luar guru dan murid yang diajak ikut mendukung pembelajaran, misalnya orang tua, komunitas, pakar, atau lembaga.">ⓘ</i></span>${D.pend.mitra.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.mitra.${i}.jenis`, MIT, 1)}${DEL('pend.mitra', i)}</div>${x.jenis === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.mitra.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis jenis mitra...">` : ''}<input style="margin-bottom:6px" data-p="pend.mitra.${i}.nama" value="${esc(x.nama)}" placeholder="Nama atau keterangan mitra">${TA(`pend.mitra.${i}.peran`, 'Peran mitra dalam pembelajaran...')}</div>`).join('')}${ADDB('pend.mitra', '+ Mitra')}</div>
-    <div class="f"><span>Ruang fisik</span>${D.pend.fisik.map((x, i) => `<div class="row"><input data-p="pend.fisik.${i}.nama" value="${esc(x.nama)}" placeholder="Nama ruangan"><input data-p="pend.fisik.${i}.suasana" value="${esc(x.suasana)}" placeholder="Suasana atau kondisi">${DEL('pend.fisik', i)}</div>`).join('')}${ADDB('pend.fisik', '+ Ruang fisik')}</div>
+    <h3>Metode pembelajaran</h3>${LIST('Daftar metode', 'pend.metode', 'Contoh: Diskusi, Tanya Jawab')}
+    <h3>Kemitraan pembelajaran</h3><div class="f"><span>Mitra<i title="Pihak di luar guru dan murid yang diajak ikut mendukung pembelajaran, misalnya orang tua, komunitas, pakar, atau lembaga.">ⓘ</i></span>${D.pend.mitra.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.mitra.${i}.jenis`, MIT, 1)}${DEL('pend.mitra', i)}</div>${x.jenis === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.mitra.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis jenis mitra...">` : ''}<input style="margin-bottom:6px" data-p="pend.mitra.${i}.nama" value="${esc(x.nama)}" placeholder="Nama atau keterangan mitra">${TA(`pend.mitra.${i}.peran`, 'Peran mitra dalam pembelajaran...')}</div>`).join('')}${ADDB('pend.mitra', '+ Mitra')}</div>
+    <h3>Lingkungan belajar</h3><div class="f"><span>Ruang fisik</span>${D.pend.fisik.map((x, i) => `<div class="row"><input data-p="pend.fisik.${i}.nama" value="${esc(x.nama)}" placeholder="Nama ruangan"><input data-p="pend.fisik.${i}.suasana" value="${esc(x.suasana)}" placeholder="Suasana atau kondisi">${DEL('pend.fisik', i)}</div>`).join('')}${ADDB('pend.fisik', '+ Ruang fisik')}</div>
     ${LIST('Budaya belajar', 'pend.budaya', 'Contoh: Budaya saling menghormati')}
-    <div class="f"><span>Integrasi TPACK / digital</span>${D.pend.tpack.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.tpack.${i}.alat`, TPK, 1)}${DEL('pend.tpack', i)}</div>${x.alat === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.tpack.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis alat manual...">` : ''}${TA(`pend.tpack.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('pend.tpack', '+ Alat digital')}</div></div>`],
+    <h3>Integrasi digital (TPACK)</h3><div class="f"><span>Alat atau media digital</span>${D.pend.tpack.map((x, i) => `<div class="blk" style="--c:var(--pri)"><div class="row">${SO(`pend.tpack.${i}.alat`, TPK, 1)}${DEL('pend.tpack', i)}</div>${x.alat === 'Lainnya' ? `<input style="margin-bottom:6px" data-p="pend.tpack.${i}.manual" value="${esc(x.manual)}" placeholder="Tulis alat manual...">` : ''}${TA(`pend.tpack.${i}.ket`, 'Keterangan...')}</div>`).join('')}${ADDB('pend.tpack', '+ Alat digital')}</div></div>`],
   ['Tahap 3: Pengalaman Belajar', () => `<div class="card">${um() ? '' : '<span class="tag t-ubd">UbD · Tahap 3</span>'}${um() ? head('Kegiatan Pembelajaran', 'Rancang kegiatan belajar untuk tiap pertemuan.') : head('Pengalaman Belajar', 'Rancang kegiatan yang mengantar murid ke bukti di Tahap 2, sambil menyisipkan DUP dan CASEL.')}</div>
     ${D.ped.map((p, i) => { const w = wInfo(p); return `<div class="card"><h3 style="margin-top:0">Pertemuan ${i + 1}</h3>
     <div class="g3 tri">${S('Pertemuan ke-', `ped.${i}.ke`, [1, 2, 3, 4, 5, 6, 7, 8].map(String))}${S('Alokasi JP', `ped.${i}.jp`, JP, 1)}${F('Menit per JP', `ped.${i}.mJP`, { type: 'number', min: 1 })}</div>
@@ -231,7 +240,7 @@ const STEPS = [
     ${um() ? '' : `${Object.keys(DUP).map(k => `<div class="blk" style="--c:var(--dup)"><span class="tag t-dup">DUP</span><h4>${DUP[k].t}</h4><p>${DUP[k].q}</p>${CHK(`ped.${i}.${k}`, DUP[k].o)}${LAINL(`ped.${i}.${k}L`, 'Lainnya: tulis strategi sendiri (opsional)')}</div>`).join('')}
     ${F('Catatan strategi DUP lain', `ped.${i}.dupCat`, { area: 2, ph: 'Rincian pelaksanaan strategi DUP yang dipilih' })}
     <div class="blk" style="--c:var(--sel)"><span class="tag t-sel">CASEL</span><h4>Integrasi sosial emosional</h4><p>Tambahkan satu entri untuk tiap kompetensi yang dilatih pada pertemuan ini.</p>
-    ${p.casel.map((c, j) => `<div class="blk" style="--c:var(--sel);background:#fff"><div class="row">${SO(`ped.${i}.casel.${j}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL(`ped.${i}.casel`, j)}</div>${TA(`ped.${i}.casel.${j}.akt`, 'Aktivitas. Contoh: check-in perasaan di pembuka, kerja kelompok bergilir, refleksi penutup')}</div>`).join('')}${ADDB(`ped.${i}.casel`, '+ CASEL')}</div>`}
+    ${p.casel.map((c, j) => `<div class="blk" style="--c:var(--sel);background:var(--card)"><div class="row">${SO(`ped.${i}.casel.${j}.k`, [['', '-- Pilih kompetensi --'], ...SEL])}${DEL(`ped.${i}.casel`, j)}</div>${TA(`ped.${i}.casel.${j}.akt`, 'Aktivitas. Contoh: check-in perasaan di pembuka, kerja kelompok bergilir, refleksi penutup')}</div>`).join('')}${ADDB(`ped.${i}.casel`, '+ CASEL')}</div>`}
     ${D.ped.length > 1 ? `<button class="x" data-del="ped:${i}">Hapus pertemuan ini</button>` : ''}</div>`; }).join('')}
     ${ADDB('ped', '+ Tambah pertemuan')}`],
   ['Pengesahan', () => `<div class="card">${head('Pengesahan', 'Data untuk blok tanda tangan.')}<div class="g2">${F('Kota atau kabupaten', 'ttd.kota', { ph: 'Semarang' })}${F('Tanggal dokumen', 'ttd.tgl', { type: 'date' })}${F('Kepala sekolah', 'ttd.kepsek')}${F('NIP kepala sekolah', 'ttd.nipk', { ph: 'Nomor NIP saja' })}${F('Guru mata pelajaran', 'ttd.guru')}${F('NIP guru', 'ttd.nipg', { ph: 'Nomor NIP saja' })}</div></div>`],
@@ -370,6 +379,22 @@ const chooser = () => `<div class="card">${head('Pilih jenis rancangan', 'Anda b
     <div class="blk" style="--c:var(--dup)"><h4>Mode Terintegrasi (UbD, DUP, CASEL)</h4><p>Menambahkan pemahaman abadi, bukti asesmen bertahap, pilihan DUP, dan integrasi sosial emosional.</p><button data-act="mode" data-m="terpadu">Pakai mode Terintegrasi</button></div>
   </div></div>`;
 
+/* tiap halaman: judul halaman, lalu satu kartu untuk setiap kelompok isian (dipisah oleh judul h3) */
+function kelompokkan(root) {
+  if (!root || !root.children) return;
+  [...root.children].filter(c => c.classList && c.classList.contains('card')).forEach(card => {
+    const els = [...card.children];
+    if (!els.some(e => e.tagName === 'H2')) return;
+    const kepala = document.createElement('div'); kepala.className = 'pagehead';
+    let i = 0;
+    while (i < els.length && (els[i].classList.contains('tag') || els[i].tagName === 'H2' || (els[i].tagName === 'P' && els[i].classList.contains('sub')))) kepala.appendChild(els[i++]);
+    const grup = []; let cur = null;
+    els.slice(i).forEach(e => { if (e.tagName === 'H3') { cur = [e]; grup.push(cur); } else { if (!cur) { cur = []; grup.push(cur); } cur.push(e); } });
+    const frag = document.createDocumentFragment(); frag.appendChild(kepala);
+    grup.forEach(gr => { const c = document.createElement('div'); c.className = 'card sec'; gr.forEach(e => c.appendChild(e)); frag.appendChild(c); });
+    card.replaceWith(frag);
+  });
+}
 function drawSteps() {
   if (!D.mode) return;
   const el = $('steps');
@@ -385,7 +410,7 @@ function render(top) {
     $('view').innerHTML = chooser(); $('steps').innerHTML = ''; $('cek').innerHTML = ''; $('pos').textContent = '';
     $('prev').disabled = true; $('next').disabled = true; const pt0 = $('posTop'); if (pt0) pt0.textContent = ''; if (top) window.scrollTo(0, 0); return;
   }
-  $('view').innerHTML = STEPS[cur][1]();
+  $('view').innerHTML = STEPS[cur][1](); kelompokkan($('view'));
   drawSteps();
   $('pos').textContent = 'Langkah ' + (cur + 1) + ' dari ' + STEPS.length; $('pos').dataset.s = (cur + 1) + '/' + STEPS.length;
   const pt = $('posTop'); if (pt) pt.textContent = 'Langkah ' + (cur + 1) + '/' + STEPS.length;
@@ -419,10 +444,16 @@ $('view').onchange = e => {
   const a = g(D, t.dataset.c);
   if (t.checked) a.push(t.value); else a.splice(a.indexOf(t.value), 1);
   save(); cek();
+  const ms = t.closest && t.closest('.msel'); if (ms) refreshMsel(ms);
 };
 $('view').onclick = async e => {
   const b = e.target.closest('button'); if (!b) return;
   const a = b.dataset.act;
+  if (b.dataset.mselbtn) { const pn = b.parentElement.querySelector('.msel-panel'), buka = pn.hidden; document.querySelectorAll('.msel-panel').forEach(x => { x.hidden = true; }); pn.hidden = !buka; return; }
+  if (b.dataset.mseldel) {
+    const path = b.dataset.mseldel, v = b.dataset.v, arr = g(D, path), k = arr.indexOf(v); if (k >= 0) arr.splice(k, 1);
+    save(); cek(); const ms = b.closest('.msel'); ms.querySelectorAll('input[data-c]').forEach(x => { if (x.value === v) x.checked = false; }); refreshMsel(ms); return;
+  }
   if (a === 'mode') { D.mode = b.dataset.m; if (!curPersisted) baseSnap = JSON.stringify(D); save(); return render(true); }
   if (a === 'dl') return unduh(b);
   if (a === 'rmcover') { D.cover = null; save(); return render(); }
@@ -463,7 +494,7 @@ function setView(v) {
 let toastT;
 function toast(m) { const t = $('toast'); if (!t || !t.classList) return; t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800); }
 const tglJam = ms => ms ? new Date(ms).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
-const labelSimpan = () => curStatus === 'selesai' ? 'Simpan perubahan' : 'Simpan draft';
+const labelSimpan = () => curStatus === 'selesai' ? 'Perbarui' : 'Simpan';
 
 function pesanLogin(e) {
   const c = (e && e.code) || '';
@@ -536,7 +567,7 @@ function drawList() {
   $('listBody').innerHTML = items.length ? items.map(rcard).join('') : `<p class="hint">${DAFTAR.length ? 'Tidak ada RPM pada tab ini.' : 'Belum ada RPM. Tekan "+ RPM baru" untuk mulai.'}</p>`;
 }
 
-function showEditor() { setView('editor'); const et = $('edTitle'); if (et) et.textContent = judulRpm(D); $('saveDraft').textContent = labelSimpan(); setSaved(''); render(true); listLamp(); }
+function showEditor() { setView('editor'); const et = $('edTitle'); if (et) et.textContent = judulRpm(D); const nl = $('navSimpanLbl'); if (nl) nl.textContent = labelSimpan(); setSaved(''); render(true); listLamp(); }
 /* RPM baru langsung berisi data dari profil guru */
 function prefillProfil(d) {
   const p = PR || {};
@@ -585,7 +616,7 @@ async function afterDownload() {
   try {
     if (typeof Repo === 'undefined' || !curId) return;
     curStatus = 'selesai'; await sync();
-    const sb = $('saveDraft'); if (sb) sb.textContent = labelSimpan();
+    const sb = $('navSimpanLbl'); if (sb) sb.textContent = labelSimpan();
     toast('RPM diunduh dan ditandai selesai.');
   } catch (e) { console.error(e); }
 }
@@ -676,8 +707,14 @@ $('logout').onclick = async () => { await sync(); localStorage.removeItem(NAVKEY
 $('acctBtn').onclick = e => { e.stopPropagation(); const m = $('acctMenu'); m.hidden = !m.hidden; };
 document.addEventListener('click', e => {
   if (!e.target.closest('.acct')) closeMenu();
+  if (!e.target.closest('.msel')) document.querySelectorAll('.msel-panel').forEach(x => { x.hidden = true; });
   const g = e.target.closest('[data-go]'); if (g) { closeMenu(); go(g.dataset.go); }
 });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenu(); document.querySelectorAll('.msel-panel').forEach(x => { x.hidden = true; }); } });
+/* tema terang atau gelap; pilihan disimpan di perangkat */
+function temaSekarang() { return document.documentElement.getAttribute('data-theme') || (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
+function gantiTema() { const t = temaSekarang() === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('rpm_theme', t); } catch (e) {} }
+$('themeBtn').onclick = gantiTema; $('themeBtn2').onclick = gantiTema;
 $('fotoIn').onchange = e => { const f = e.target.files[0]; if (f) bacaFoto(f); e.target.value = ''; };
 $('fotoDel').onclick = () => { fotoBaru = ''; drawAvatar($('avBig'), (USER && USER.photo) || '', $('pf-nama').value || (USER && USER.name) || ''); };
 $('profSave').onclick = saveProfil;
@@ -688,7 +725,7 @@ const simpanDraft = async () => {
   if (!curPersisted) return showList('RPM masih kosong, tidak ada yang disimpan.');
   await showList(curStatus === 'selesai' ? 'Perubahan tersimpan.' : 'Draft tersimpan.');
 };
-$('saveDraft').onclick = simpanDraft; $('navSimpan').onclick = simpanDraft;
+$('navSimpan').onclick = simpanDraft;
 $('listv').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.tab) { listFilter = b.dataset.tab; saveNav(); return drawList(); }
